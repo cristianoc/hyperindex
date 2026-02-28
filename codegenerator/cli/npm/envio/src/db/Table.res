@@ -10,12 +10,9 @@ type fieldType =
 type field = {
   fieldName: string,
   fieldType: fieldType,
-  isArray: bool,
-  isNullable: bool,
   isPrimaryKey: bool,
   isIndex: bool,
   linkedEntity: option<string>,
-  defaultValue: option<string>,
 }
 
 type derivedFromField = {
@@ -23,13 +20,9 @@ type derivedFromField = {
   derivedFromEntity: string,
   derivedFromField: string,
 }
-
-type fieldOrDerived = Field(field) | DerivedFrom(derivedFromField)
+type fieldOrDerived = field
 
 let mkField = (
-  ~default=?,
-  ~isArray=false,
-  ~isNullable=false,
   ~isPrimaryKey=false,
   ~isIndex=false,
   ~linkedEntity=?,
@@ -39,30 +32,19 @@ let mkField = (
   {
     fieldName,
     fieldType,
-    isArray,
-    isNullable,
     isPrimaryKey,
     isIndex,
     linkedEntity,
-    defaultValue: default,
-  }->Field
-
-let getUserDefinedFieldName = fieldOrDerived =>
-  switch fieldOrDerived {
-  | Field({fieldName})
-  | DerivedFrom({fieldName}) => fieldName
   }
+
+let getUserDefinedFieldName = (field: fieldOrDerived) => field.fieldName
 
 let isLinkedEntityField = field => field.linkedEntity->Option.isSome
 
 let getDbFieldName = field =>
   field->isLinkedEntityField ? field.fieldName ++ "_id" : field.fieldName
 
-let getFieldName = fieldOrDerived =>
-  switch fieldOrDerived {
-  | Field(field) => field->getDbFieldName
-  | DerivedFrom({fieldName}) => fieldName
-  }
+let getFieldName = (field: fieldOrDerived) => field->getDbFieldName
 
 type table = {
   tableName: string,
@@ -80,48 +62,26 @@ let mkTable = (tableName, ~schemaName, ~compositeIndices=[], ~fields) => {
 
 let getPrimaryKeyFieldNames = table =>
   table.fields->Array.filterMap(field =>
-    switch field {
-    | Field({isPrimaryKey: true, fieldName}) => Some(fieldName)
-    | _ => None
-    }
+    field.isPrimaryKey ? Some(field.fieldName) : None
   )
 
-let getFields = table =>
-  table.fields->Array.filterMap(field =>
-    switch field {
-    | Field(field) => Some(field)
-    | DerivedFrom(_) => None
-    }
-  )
+let getFields = table => table.fields
 
 let getLinkedEntityFields = table =>
   table.fields->Array.filterMap(field =>
-    switch field {
-    | Field({linkedEntity: Some(linkedEntityName)} as field) => Some((field, linkedEntityName))
-    | Field({linkedEntity: None})
-    | DerivedFrom(_) =>
-      None
+    switch field.linkedEntity {
+    | Some(linkedEntityName) => Some((field, linkedEntityName))
+    | None => None
     }
   )
 
-let getDerivedFromFields = table =>
-  table.fields->Array.filterMap(field =>
-    switch field {
-    | DerivedFrom(field) => Some(field)
-    | Field(_) => None
-    }
-  )
+let getDerivedFromFields = _table => []
 
 let getFieldByName = (table, fieldName) =>
   table.fields->Array.find(field => field->getUserDefinedFieldName === fieldName)
 
 let getFieldByDbName = (table, dbFieldName) =>
-  table.fields->Array.find(field =>
-    switch field {
-    | Field(f) => f->getDbFieldName
-    | DerivedFrom({fieldName}) => fieldName
-    } === dbFieldName
-  )
+  table.fields->Array.find(field => field->getDbFieldName === dbFieldName)
 
 exception NonExistingTableField(string)
 
@@ -194,7 +154,7 @@ let toSqlParams = (table: table, ~schema) => {
         ->Array.push(inlinedLocation)
         ->ignore
         switch field {
-        | Field({isPrimaryKey: false}) =>
+        | {isPrimaryKey: false} =>
           quotedNonPrimaryFieldNames
           ->Array.push(inlinedLocation)
           ->ignore
@@ -204,12 +164,11 @@ let toSqlParams = (table: table, ~schema) => {
         arrayFieldTypes
         ->Array.push(
           switch field {
-          | Field(f) =>
+          | f =>
             switch f.fieldType {
             | Custom(fieldType) => `${(Text :> string)}[]::${(fieldType :> string)}`
             | fieldType => (fieldType :> string)
             }
-          | DerivedFrom(_) => (Text :> string)
           } ++ "[]",
         )
         ->ignore
@@ -235,10 +194,7 @@ And maps the fields defined to their actual db name (some have _id suffix)
 */
 let getSingleIndices = (table): array<string> => {
   let indexFields = table.fields->Array.filterMap(field =>
-    switch field {
-    | Field(field) if field.isIndex => Some(field->getDbFieldName)
-    | _ => None
-    }
+    field.isIndex ? Some(field->getDbFieldName) : None
   )
 
   table
