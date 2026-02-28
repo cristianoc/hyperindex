@@ -6,7 +6,7 @@ module Crypto = {
   type t
   @module external crypto: t = "crypto"
 
-  type hashAlgo = | @as("sha3-256") Sha3_256
+  type hashAlgo = string
 
   type hash
   @send external createHash: (t, hashAlgo) => hash = "createHash"
@@ -14,28 +14,17 @@ module Crypto = {
   type hashedData
   @send external update: (hash, string) => hashedData = "update"
 
-  type digestOptions = | @as("hex") Hex
+  type digestOptions = string
   @send external digest: (hashedData, digestOptions) => string = "digest"
 
 }
 
 module Make = (Indexer: Indexer.S) => {
-  open Indexer
-  type log = {
-    eventItem: Internal.eventItem,
-    srcAddress: Address.t,
-    transactionHash: string,
-  }
+  type log
 
   type makeEvent = (~blockHash: string) => Internal.event
 
-  type logConstructor = {
-    transactionHash: string,
-    makeEvent: makeEvent,
-    logIndex: int,
-    srcAddress: Address.t,
-    eventConfig: Internal.evmEventConfig,
-  }
+  type logConstructor
 
   type composedEventConstructor = (
     ~chainId: int,
@@ -45,23 +34,10 @@ module Make = (Indexer: Indexer.S) => {
     ~logIndex: int,
   ) => logConstructor
 
-  type block = {
-    blockNumber: int,
-    blockTimestamp: int,
-    blockHash: string,
-    logs: array<log>,
-  }
+  type block
 
-  type t = {
-    chainConfig: Config.chainConfig,
-    blocks: array<block>,
-    maxBlocksReturned: int,
-    blockTimestampInterval: int,
-  }
+  type t
 
-  type contractAddressesAndEventNames = {
-    addresses: array<Address.t>,
-    eventKeys: array<string>,
-  }
+  type contractAddressesAndEventNames
 
 }
