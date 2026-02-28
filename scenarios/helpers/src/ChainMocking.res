@@ -26,7 +26,6 @@ module Crypto = {
     ->digest(Hex)
     ->pad
 
-  let hashKeccak256String = hashKeccak256(~toString=int => int->Obj.magic, _)
   let hashKeccak256Int = hashKeccak256(~toString=int => int->Int.toString, _)
   let anyToString = a => a->JSON.stringifyAny->Option.getOrThrow
   let hashKeccak256Any = hashKeccak256(~toString=anyToString, _)
@@ -60,53 +59,6 @@ module Make = (Indexer: Indexer.S) => {
     ~logIndex: int,
   ) => logConstructor
 
-  let makeEventConstructor = (
-    ~params: Internal.eventParams,
-    ~eventConfig: Internal.evmEventConfig,
-    ~srcAddress,
-    ~makeBlock: (
-      ~blockNumber: int,
-      ~blockTimestamp: int,
-      ~blockHash: string,
-    ) => Internal.eventBlock,
-    ~makeTransaction: (
-      ~transactionIndex: int,
-      ~transactionHash: string,
-    ) => Internal.eventTransaction,
-    ~chainId,
-    ~blockTimestamp: int,
-    ~blockNumber: int,
-    ~transactionIndex,
-    ~logIndex,
-  ) => {
-    let transactionHash =
-      Crypto.hashKeccak256Any(
-        params->RescriptSchema.S.reverseConvertToJsonOrThrow(eventConfig.paramsRawEventSchema),
-      )
-      ->Crypto.hashKeccak256Compound(transactionIndex)
-      ->Crypto.hashKeccak256Compound(blockNumber)
-
-    let makeEvent: makeEvent = (~blockHash) => {
-      let block = makeBlock(~blockHash, ~blockNumber, ~blockTimestamp)
-      {
-        params,
-        srcAddress,
-        chainId,
-        block,
-        transaction: makeTransaction(~transactionIndex, ~transactionHash),
-        logIndex,
-      }
-    }
-
-    {
-      transactionHash,
-      makeEvent,
-      logIndex,
-      srcAddress,
-      eventConfig,
-    }
-  }
-
   type block = {
     blockNumber: int,
     blockTimestamp: int,
@@ -121,13 +73,6 @@ module Make = (Indexer: Indexer.S) => {
     blockTimestampInterval: int,
   }
 
-  let make = (~chainConfig, ~maxBlocksReturned, ~blockTimestampInterval) => {
-    chainConfig,
-    blocks: [],
-    maxBlocksReturned,
-    blockTimestampInterval,
-  }
-
   let getLast = arr => arr->Array.get(arr->Array.length - 1)
 
   let getBlockHash = (~previousHash, ~logConstructors: array<logConstructor>) =>
@@ -136,52 +81,6 @@ module Make = (Indexer: Indexer.S) => {
     })
 
   let zeroKeccak = Crypto.hashKeccak256Int(0)
-  let addBlock = (self: t, ~makeLogConstructors: array<composedEventConstructor>) => {
-    let lastBlock = self.blocks->getLast
-    let (previousHash, blockNumber, blockTimestamp) = switch lastBlock {
-    | None => (zeroKeccak, 0, 0)
-    | Some({blockHash, blockNumber, blockTimestamp}) => (
-        blockHash,
-        blockNumber + 1,
-        blockTimestamp + self.blockTimestampInterval,
-      )
-    }
-    let logConstructors =
-      makeLogConstructors->Array.mapWithIndex((x, i) =>
-        x(
-          ~transactionIndex=i,
-          ~logIndex=i,
-          ~chainId=self.chainConfig.chain->ChainMap.Chain.toChainId,
-          ~blockNumber,
-          ~blockTimestamp,
-        )
-      )
-
-    let blockHash = getBlockHash(~previousHash, ~logConstructors)
-
-    let logs = logConstructors->Array.map(({
-      makeEvent,
-      logIndex,
-      srcAddress,
-      transactionHash,
-      eventConfig,
-    }): log => {
-      let log: Internal.eventItem = {
-        eventConfig: (eventConfig :> Internal.eventConfig),
-        event: makeEvent(~blockHash),
-        chain: self.chainConfig.chain,
-        timestamp: blockTimestamp,
-        blockNumber,
-        logIndex,
-      }
-      {eventItem: log, srcAddress, transactionHash}
-    })
-
-    let block = {blockNumber, blockTimestamp, blockHash, logs}
-
-    {...self, blocks: self.blocks->Array.concat([block])}
-  }
-
   let getHeight = (self: t) =>
     self.blocks
     ->getLast
@@ -236,68 +135,4 @@ module Make = (Indexer: Indexer.S) => {
     )
   }
 
-  let executeQuery = (self: t, query: FetchState.query): Source.blockRangeFetchResponse => {
-    let {fromBlock} = query
-    let toBlock = switch query.target {
-    | Head => None
-    | EndBlock({toBlock})
-    | Merge({toBlock}) =>
-      Some(toBlock)
-    }
-
-    let unfilteredBlocks = self->getBlocks(~fromBlock, ~toBlock)
-    let heighstBlock = unfilteredBlocks->getLast->Option.getOrThrow
-    let firstBlockParentNumberAndHash =
-      self
-      ->getBlock(~blockNumber=fromBlock - 1)
-      ->Option.map(b => {ReorgDetection.blockNumber: b.blockNumber, blockHash: b.blockHash})
-    let currentBlockHeight = self->getHeight
-
-    let addressesAndEventNames = self.chainConfig.contracts->Array.map(c => {
-      let addresses =
-        query.contractAddressMapping->ContractAddressingMap.getAddressesFromContractName(
-          ~contractName=c.name,
-        )
-      {
-        addresses,
-        eventKeys: c.events->Belt.Array.map(eventConfig => {
-          eventConfig->getEventKey
-        }),
-      }
-    })
-
-    let parsedQueueItems = unfilteredBlocks->getLogsFromBlocks(~addressesAndEventNames)
-
-    {
-      currentBlockHeight,
-      reorgGuard: {
-        lastBlockScannedData: {
-          blockHash: heighstBlock.blockHash,
-          blockNumber: heighstBlock.blockNumber,
-        },
-        firstBlockParentNumberAndHash,
-      },
-      parsedQueueItems,
-      fromBlockQueried: fromBlock,
-      latestFetchedBlockNumber: heighstBlock.blockNumber,
-      latestFetchedBlockTimestamp: heighstBlock.blockTimestamp,
-      stats: "NO_STATS"->Obj.magic,
-    }
-  }
-
-  let getBlockHashes = (self: t, ~blockNumbers) => {
-    blockNumbers->Array.filterMap(blockNumber =>
-      self
-      ->getBlock(~blockNumber)
-      ->Option.map(({
-        blockTimestamp,
-        blockHash,
-        blockNumber,
-      }): ReorgDetection.blockDataWithTimestamp => {
-        blockTimestamp,
-        blockHash,
-        blockNumber,
-      })
-    )
-  }
 }
