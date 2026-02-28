@@ -28,24 +28,19 @@ type rec asyncMap<'key, 'value> = {
 
 let make = (
   ~loaderFn,
-  ~onError=?,
-  ~cacheSize: int=10_000,
-  ~loaderPoolSize: int=10,
-  ~retryDelayMillis=5_000,
-  ~timeoutMillis=300_000,
 ) => // After 5 minutes (unclear what is best to do here - crash or just keep printing the error)
 {
-  _cacheSize: cacheSize,
-  _loaderPoolSize: loaderPoolSize,
-  _retryDelayMillis: retryDelayMillis,
-  _timeoutMillis: timeoutMillis,
+  _cacheSize: 10_000,
+  _loaderPoolSize: 10,
+  _retryDelayMillis: 5_000,
+  _timeoutMillis: 300_000,
   externalPromises: Utils.Map.make(),
   resolvers: Utils.Map.make(),
   inProgress: Utils.Set.make(),
   loaderQueue: SDSL.Queue.make(),
   loadedKeys: SDSL.Queue.make(),
   loaderFn,
-  onError,
+  onError: None,
 }
 
 // If something takes longer than this to load, reject the promise and try again

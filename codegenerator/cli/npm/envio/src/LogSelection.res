@@ -1,5 +1,3 @@
-exception MissingRequiredTopic0
-
 let hasFilters = ({topic1, topic2, topic3}: Internal.topicSelection) => {
   [topic1, topic2, topic3]->Array.find(topic => !Utils.Array.isEmpty(topic))->Belt.Option.isSome
 }
