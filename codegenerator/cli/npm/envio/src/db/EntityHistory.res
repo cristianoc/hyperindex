@@ -17,7 +17,6 @@ type historyFieldsGeneral<'a> = {
 type historyFields = historyFieldsGeneral<int>
 
 type entityIdOnly = {id: string}
-let entityIdOnlySchema = S.schema(s => {id: s.matches(S.string)})
 type entityData<'entity> = Delete(entityIdOnly) | Set('entity)
 
 type historyRow<'entity> = {
