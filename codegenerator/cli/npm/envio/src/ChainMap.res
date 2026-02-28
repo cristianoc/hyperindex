@@ -4,8 +4,6 @@ module Chain = {
   external toChainId: t => int = "%identity"
 
   let toString = chainId => chainId->Int.toString
-
-  let makeUnsafe = (~chainId) => chainId
 }
 
 module ChainIdCmp = Belt.Id.MakeComparable({
