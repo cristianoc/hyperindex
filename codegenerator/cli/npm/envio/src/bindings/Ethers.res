@@ -1,15 +1,9 @@
 type abi = EvmTypes.Abi.t
 
-let makeAbi = (abi: JSON.t): abi => abi->Utils.magic
-
 @deprecated("Use Address.t instead. The type will be removed in v3")
 type ethAddress = Address.t
 @deprecated("Use Address.Evm.fromStringOrThrow instead. The function will be removed in v3")
 let getAddressFromStringUnsafe = Address.Evm.fromStringOrThrow
-@deprecated("Use Address.toString instead. The function will be removed in v3")
-let ethAddressToString = Address.toString
-@deprecated("Use Address.schema instead. The function will be removed in v3")
-let ethAddressSchema = Address.schema
 
 type txHash = string
 
@@ -60,7 +54,6 @@ module CombinedFilter = {
     toBlock: int,
   }
 
-  let toFilter = (combinedFilter: combinedFilterRecord): Filter.t => combinedFilter->Utils.magic
 }
 
 type log = {
@@ -80,10 +73,6 @@ type log = {
 type transaction
 
 type minimumParseableLogData = {topics: array<EvmTypes.Hex.t>, data: string}
-
-//Can safely convert from log to minimumParseableLogData since it contains
-//both data points required
-let logToMinimumParseableLogData: log => minimumParseableLogData = Utils.magic
 
 type logDescription<'a> = {
   args: 'a,
@@ -136,29 +125,11 @@ module JsonRpcProvider = {
     makeWithOptions(~rpcUrl, ~network, ~options={staticNetwork: network, ?priority, ?stallTimeout})
   }
 
-  let make = (~rpcUrl: string, ~chainId: int): t => {
-    let network = Network.fromChainId(~chainId)
-    makeStatic(~rpcUrl, ~network)
-  }
-
   @send
   external getLogs: (t, ~filter: Filter.t) => promise<array<log>> = "getLogs"
 
   @send
   external getTransaction: (t, ~transactionHash: string) => promise<transaction> = "getTransaction"
-
-  let makeGetTransactionFields = (~getTransactionByHash) =>
-    async (log: log): promise<unknown> => {
-      let transaction = await getTransactionByHash(log.transactionHash)
-      // Mutating should be fine, since the transaction isn't used anywhere else outside the function
-      let fields: {..} = transaction->Obj.magic
-
-      // Make it compatible with HyperSync transaction fields
-      fields["transactionIndex"] = log.transactionIndex
-      fields["input"] = fields["data"]
-
-      fields->Obj.magic
-    }
 
   type block = {
     _difficulty: bigint,
