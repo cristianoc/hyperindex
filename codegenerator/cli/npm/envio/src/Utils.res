@@ -34,13 +34,6 @@ module Dict = {
    */
   external dangerouslyGetNonOption: (dict<'a>, string) => option<'a> = ""
 
-  let updateImmutable: (
-    dict<'a>,
-    string,
-    'a,
-  ) => dict<'a> = %raw(`(dict, key, value) => ({...dict, [key]: value})`)
-
-  let shallowCopy: dict<'a> => dict<'a> = %raw(`(dict) => ({...dict})`)
 }
 
 module Math = {
