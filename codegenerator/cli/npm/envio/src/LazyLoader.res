@@ -48,8 +48,6 @@ let make = (
   onError,
 }
 
-let deleteKey: (dict<'value>, string) => unit = (_obj, _k) => %raw(`delete _obj[_k]`)
-
 // If something takes longer than this to load, reject the promise and try again
 let timeoutAfter = timeoutMillis =>
   Utils.delay(timeoutMillis)->Promise.then(() =>
