@@ -34,13 +34,6 @@ module Dict = {
    */
   external dangerouslyGetNonOption: (dict<'a>, string) => option<'a> = ""
 
-  let pushMany = (dict, key, values) => {
-    switch dict->dangerouslyGetNonOption(key) {
-    | Some(arr) => arr->Array.pushMany(values)->ignore
-    | None => dict->Dict.set(key, values)
-    }
-  }
-
   let merge: (dict<'a>, dict<'a>) => dict<'a> = %raw(`(dictA, dictB) => ({...dictA, ...dictB})`)
 
   let map = (dict, fn) => {
