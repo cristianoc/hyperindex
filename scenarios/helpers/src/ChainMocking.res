@@ -26,10 +26,7 @@ module Crypto = {
     ->digest(Hex)
     ->pad
 
-  let hashKeccak256Int = hashKeccak256(~toString=int => int->Int.toString, _)
   let anyToString = a => a->JSON.stringifyAny->Option.getOrThrow
-  let hashKeccak256Compound = (previousHash, input) =>
-    input->hashKeccak256(~toString=v => anyToString(v) ++ previousHash)
 }
 
 module Make = (Indexer: Indexer.S) => {
@@ -72,17 +69,9 @@ module Make = (Indexer: Indexer.S) => {
     blockTimestampInterval: int,
   }
 
-  let getLast = arr => arr->Array.get(arr->Array.length - 1)
-
-  let arrayHas = (arr, v) => arr->Array.find(item => item == v)->Option.isSome
-
   type contractAddressesAndEventNames = {
     addresses: array<Address.t>,
     eventKeys: array<string>,
-  }
-
-  let getEventKey = (eventConfig: Internal.eventConfig) => {
-    eventConfig.contractName ++ "_" ++ eventConfig.id
   }
 
 }
