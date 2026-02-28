@@ -36,13 +36,6 @@ module Dict = {
 
   let merge: (dict<'a>, dict<'a>) => dict<'a> = %raw(`(dictA, dictB) => ({...dictA, ...dictB})`)
 
-  let forEach = (dict, fn) => {
-    let keys = dict->Dict.keysToArray
-    for idx in 0 to keys->Array.length - 1 {
-      fn(dict->Dict.getUnsafe(keys->Array.getUnsafe(idx)))
-    }
-  }
-
   let deleteInPlace: (dict<'a>, string) => unit = %raw(`(dict, key) => {
       delete dict[key];
     }
