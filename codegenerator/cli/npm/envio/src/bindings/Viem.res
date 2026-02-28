@@ -1,13 +1,10 @@
-type eventLog = {
-  abi: EvmTypes.Abi.t,
-  data: string,
-  topics: array<EvmTypes.Hex.t>,
-}
+type eventLog
 
-type decodedEvent<'a> = {
-  eventName: string,
-  args: 'a,
-}
+@obj
+external makeEventLog: (~abi: EvmTypes.Abi.t, ~data: string, ~topics: array<EvmTypes.Hex.t>) => eventLog =
+  ""
+
+type decodedEvent<'a>
 
 @module("viem") external decodeEventLogOrThrow: eventLog => decodedEvent<'a> = "decodeEventLog"
 
@@ -19,7 +16,8 @@ type hex = EvmTypes.Hex.t
 @module("viem")
 external encodePacked: (~types: array<string>, ~values: array<'a>) => hex = "encodePacked"
 
-type sizeOptions = {size: int}
+type sizeOptions
+@obj external makeSizeOptions: (~size: int) => sizeOptions = ""
 @module("viem") external intToHex: (int, ~options: sizeOptions=?) => hex = "numberToHex"
 @module("viem") external bigintToHex: (bigint, ~options: sizeOptions=?) => hex = "numberToHex"
 @module("viem") external stringToHex: (string, ~options: sizeOptions=?) => hex = "stringToHex"
@@ -39,11 +37,7 @@ let parseLogOrThrow = (
   switch contractNameAbiMapping->Utils.Dict.dangerouslyGetNonOption(contractName) {
   | None => throw(UnknownContractName({contractName: contractName}))
   | Some(abi) =>
-    let viemLog: eventLog = {
-      abi,
-      data,
-      topics,
-    }
+    let viemLog: eventLog = makeEventLog(~abi, ~data, ~topics)
 
     try viemLog->decodeEventLogOrThrow catch {
     | exn => throw(ParseError(exn))
