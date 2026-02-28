@@ -87,10 +87,6 @@ type eventConfig = private {
 
 type fuelEventKind =
   | LogData({logId: string, decode: string => eventParams})
-  | Mint
-  | Burn
-  | Transfer
-  | Call
 type fuelEventConfig = {
   ...eventConfig,
   kind: fuelEventKind,
