@@ -36,16 +36,6 @@ module Dict = {
 
   let merge: (dict<'a>, dict<'a>) => dict<'a> = %raw(`(dictA, dictB) => ({...dictA, ...dictB})`)
 
-  let map = (dict, fn) => {
-    let newDict = Dict.make()
-    let keys = dict->Dict.keysToArray
-    for idx in 0 to keys->Array.length - 1 {
-      let key = keys->Array.getUnsafe(idx)
-      newDict->Dict.set(key, fn(dict->Dict.getUnsafe(key)))
-    }
-    newDict
-  }
-
   let forEach = (dict, fn) => {
     let keys = dict->Dict.keysToArray
     for idx in 0 to keys->Array.length - 1 {
