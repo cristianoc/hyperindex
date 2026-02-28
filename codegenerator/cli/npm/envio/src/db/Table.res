@@ -16,7 +16,6 @@ type field = {
 }
 
 type derivedFromField = {
-  fieldName: string,
   derivedFromEntity: string,
   derivedFromField: string,
 }
