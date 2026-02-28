@@ -22,14 +22,7 @@ module Object = {
   external defineProperty: ('obj, string, propertyDescriptor<'a>) => 'obj = "defineProperty"
 }
 
-module Option = {
-  let getExn = (opt, message) => {
-    switch opt {
-    | None => JsError.throwWithMessage(message)
-    | Some(v) => v
-    }
-  }
-}
+module Option = {}
 
 module Tuple = {
   /**Access a tuple value by its index*/
