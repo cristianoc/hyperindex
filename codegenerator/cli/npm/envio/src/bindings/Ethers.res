@@ -121,10 +121,6 @@ module JsonRpcProvider = {
   external makeWithOptions: (~rpcUrl: string, ~network: Network.t, ~options: rpcOptions) => t =
     "JsonRpcProvider"
 
-  let makeStatic = (~rpcUrl: string, ~network: Network.t, ~priority=?, ~stallTimeout=?): t => {
-    makeWithOptions(~rpcUrl, ~network, ~options={staticNetwork: network, ?priority, ?stallTimeout})
-  }
-
   @send
   external getLogs: (t, ~filter: Filter.t) => promise<array<log>> = "getLogs"
 
