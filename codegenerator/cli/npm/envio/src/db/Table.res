@@ -3,15 +3,8 @@ type derived
 @unboxed
 type fieldType =
   | @as("INTEGER") Integer
-  | @as("BOOLEAN") Boolean
-  | @as("NUMERIC") Numeric
-  | @as("DOUBLE PRECISION") DoublePrecision
   | @as("TEXT") Text
   | @as("SERIAL") Serial
-  | @as("JSONB") JsonB
-  | @as("TIMESTAMP WITH TIME ZONE") Timestamp
-  | @as("TIMESTAMP") TimestampWithoutTimezone
-  | @as("TIMESTAMP WITH TIME ZONE NULL") TimestampWithNullTimezone
   | Custom(string)
 
 type field = {
@@ -147,13 +140,16 @@ let getUnfilteredCompositeIndicesUnsafe = (table): array<array<string>> => {
   )
 }
 
-type sqlParams<'entity> = {
-  dbSchema: S.t<'entity>,
-  quotedFieldNames: array<string>,
-  quotedNonPrimaryFieldNames: array<string>,
-  arrayFieldTypes: array<string>,
-  hasArrayField: bool,
-}
+type sqlParams<'entity>
+
+@obj
+external makeSqlParams: (
+  ~dbSchema: S.t<'entity>,
+  ~quotedFieldNames: array<string>,
+  ~quotedNonPrimaryFieldNames: array<string>,
+  ~arrayFieldTypes: array<string>,
+  ~hasArrayField: bool,
+) => sqlParams<'entity> = ""
 
 let toSqlParams = (table: table, ~schema) => {
   let quotedFieldNames = []
@@ -211,7 +207,6 @@ let toSqlParams = (table: table, ~schema) => {
           | Field(f) =>
             switch f.fieldType {
             | Custom(fieldType) => `${(Text :> string)}[]::${(fieldType :> string)}`
-            | Boolean => `${(Integer :> string)}[]::${(f.fieldType :> string)}`
             | fieldType => (fieldType :> string)
             }
           | DerivedFrom(_) => (Text :> string)
@@ -225,13 +220,13 @@ let toSqlParams = (table: table, ~schema) => {
     }
   )
 
-  {
-    dbSchema: dbSchema->(Utils.magic: S.t<dict<unknown>> => S.t<'entity>),
-    quotedFieldNames,
-    quotedNonPrimaryFieldNames,
-    arrayFieldTypes,
-    hasArrayField: hasArrayField.contents,
-  }
+  makeSqlParams(
+    ~dbSchema=dbSchema->(Utils.magic: S.t<dict<unknown>> => S.t<'entity>),
+    ~quotedFieldNames,
+    ~quotedNonPrimaryFieldNames,
+    ~arrayFieldTypes,
+    ~hasArrayField=hasArrayField.contents,
+  )
 }
 
 /*
