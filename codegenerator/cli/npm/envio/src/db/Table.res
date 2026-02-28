@@ -101,14 +101,6 @@ let getFields = table =>
     }
   )
 
-let getNonDefaultFields = table =>
-  table.fields->Array.filterMap(field =>
-    switch field {
-    | Field(field) if field.defaultValue->Option.isNone => Some(field)
-    | _ => None
-    }
-  )
-
 let getLinkedEntityFields = table =>
   table.fields->Array.filterMap(field =>
     switch field {
@@ -126,10 +118,6 @@ let getDerivedFromFields = table =>
     | Field(_) => None
     }
   )
-
-let getNonDefaultFieldNames = table => {
-  table->getNonDefaultFields->Array.map(getDbFieldName)
-}
 
 let getFieldByName = (table, fieldName) =>
   table.fields->Array.find(field => field->getUserDefinedFieldName === fieldName)
@@ -292,40 +280,5 @@ module PostgresInterop = {
   type pgFn<'payload, 'return> = (Postgres.sql, 'payload) => promise<'return>
   type batchSetFn<'a> = (Postgres.sql, array<'a>) => promise<unit>
   external eval: string => 'a = "eval"
-
-  let makeBatchSetFnString = (table: table) => {
-    let fieldNamesInQuotes =
-      table->getNonDefaultFieldNames->Array.map(fieldName => `"${fieldName}"`)
-    `(sql, rows) => {
-      return sql\`
-        INSERT INTO "${table.schemaName}"."${table.tableName}"
-        \${sql(rows, ${fieldNamesInQuotes->Array.join(", ")})}
-        ON CONFLICT(${table->getPrimaryKeyFieldNames->Array.join(", ")}) DO UPDATE
-        SET
-        ${fieldNamesInQuotes
-      ->Array.map(fieldNameInQuotes => `${fieldNameInQuotes} = EXCLUDED.${fieldNameInQuotes}`)
-      ->Array.join(", ")};\`
-    }`
-  }
-
-  let chunkBatchQuery = (
-    sql,
-    entityDataArray: array<'entity>,
-    queryToExecute: pgFn<array<'entity>, 'return>,
-    ~maxItemsPerQuery=500,
-  ): promise<array<'return>> => {
-    let responses = []
-    let i = ref(0)
-    let shouldContinue = () => i.contents < entityDataArray->Array.length
-    // Split entityDataArray into chunks of maxItemsPerQuery
-    while shouldContinue() {
-      let chunk =
-        entityDataArray->Array.slice(~start=i.contents, ~end=i.contents + maxItemsPerQuery)
-      let response = queryToExecute(sql, chunk)
-      responses->Array.push(response)->ignore
-      i := i.contents + maxItemsPerQuery
-    }
-    Promise.all(responses)
-  }
 
 }

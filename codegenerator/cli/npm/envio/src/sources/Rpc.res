@@ -1,29 +1,10 @@
 type hex = string
-let makeHexSchema = fromStr =>
-  S.string->S.transform(s => {
-    parser: str =>
-      switch str->fromStr {
-      | Some(v) => v
-      | None => s.fail("The string is not valid hex")
-      },
-    serializer: value => value->Viem.toHex->Utils.magic,
-  })
-
-let hexBigintSchema: S.schema<bigint> = makeHexSchema(Utils.BigInt.fromString)
 external number: string => int = "Number"
-let hexIntSchema: S.schema<int> = makeHexSchema(v => v->number->Some)
 
 module GetLogs = {
   @unboxed
   type topicFilter = Single(hex) | Multiple(array<hex>) | @as(null) Null
-  let topicFilterSchema = S.union([
-    S.literal(Null),
-    S.schema(s => Multiple(s.matches(S.array(S.string)))),
-    S.schema(s => Single(s.matches(S.string))),
-  ])
   type topicQuery = array<topicFilter>
-  let topicQuerySchema = S.array(topicFilterSchema)
-
   type param = {
     fromBlock: int,
     toBlock: int,

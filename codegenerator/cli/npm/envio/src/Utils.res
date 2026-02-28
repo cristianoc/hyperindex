@@ -190,14 +190,6 @@ module Map = {
 }
 
 module BigInt = {
-  let fromString = str => {
-    try {
-      Some(%raw("BigInt(str)"))
-    } catch {
-    | _ => None
-    }
-  }
-
   module Bitwise = {
     @@warning("-27")
     @@warning("+27")
