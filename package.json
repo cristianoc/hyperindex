@@ -10,6 +10,7 @@
     "rescript": "12.2.0"
   },
   "scripts": {
-    "build:rescript": "pnpm exec rescript"
+    "build:rescript": "pnpm exec rescript",
+    "dce:rescript": "pnpm exec rescript-tools reanalyze -config"
   }
 }

@@ -25,5 +25,4 @@ module Evm = {
     }
   }
 
-  let fromAddressOrThrow = address => address->toString->fromStringOrThrow
 }
