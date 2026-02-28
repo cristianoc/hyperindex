@@ -8,15 +8,7 @@ let delay = milliseconds =>
   })
 
 module Object = {
-  // Define a type for the property descriptor
-  type propertyDescriptor<'a> = {
-    configurable?: bool,
-    enumerable?: bool,
-    writable?: bool,
-    value?: 'a,
-    get?: unit => 'a,
-    set?: 'a => unit,
-  }
+  type propertyDescriptor<'a>
 
   @val @scope("Object")
   external defineProperty: ('obj, string, propertyDescriptor<'a>) => 'obj = "defineProperty"
