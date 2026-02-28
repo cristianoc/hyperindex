@@ -34,13 +34,6 @@ module Dict = {
    */
   external dangerouslyGetNonOption: (dict<'a>, string) => option<'a> = ""
 
-  let merge: (dict<'a>, dict<'a>) => dict<'a> = %raw(`(dictA, dictB) => ({...dictA, ...dictB})`)
-
-  let deleteInPlace: (dict<'a>, string) => unit = %raw(`(dict, key) => {
-      delete dict[key];
-    }
-  `)
-
   let updateImmutable: (
     dict<'a>,
     string,
