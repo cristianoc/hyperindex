@@ -1,25 +1,3 @@
-let makeRpcRoute = (method: string, paramsSchema, resultSchema) => {
-  let idSchema = S.literal(1)
-  let versionSchema = S.literal("2.0")
-  Rest.route(() => {
-    method: Post,
-    path: "",
-    input: s => {
-      let _ = s.field("method", S.literal(method))
-      let _ = s.field("id", idSchema)
-      let _ = s.field("jsonrpc", versionSchema)
-      s.field("params", paramsSchema)
-    },
-    responses: [
-      s => {
-        let _ = s.field("jsonrpc", versionSchema)
-        let _ = s.field("id", idSchema)
-        s.field("result", resultSchema)
-      },
-    ],
-  })
-}
-
 type hex = string
 let makeHexSchema = fromStr =>
   S.string->S.transform(s => {
@@ -46,31 +24,6 @@ module GetLogs = {
   type topicQuery = array<topicFilter>
   let topicQuerySchema = S.array(topicFilterSchema)
 
-  let makeTopicQuery = (~topic0=[], ~topic1=[], ~topic2=[], ~topic3=[]) => {
-    let topics = [topic0, topic1, topic2, topic3]
-
-    let isLastTopicEmpty = () =>
-      switch topics->Utils.Array.last {
-      | Some([]) => true
-      | _ => false
-      }
-
-    //Remove all empty topics from the end of the array
-    while isLastTopicEmpty() {
-      topics->Array.pop->ignore
-    }
-
-    let toTopicFilter = topic => {
-      switch topic {
-      | [] => Null
-      | [single] => Single(single->EvmTypes.Hex.toString)
-      | multiple => Multiple(multiple->EvmTypes.Hex.toStrings)
-      }
-    }
-
-    topics->Belt.Array.map(toTopicFilter)
-  }
-
   type param = {
     fromBlock: int,
     toBlock: int,
@@ -78,14 +31,6 @@ module GetLogs = {
     topics: topicQuery,
     // blockHash?: string,
   }
-
-  let paramsSchema = S.object((s): param => {
-    fromBlock: s.field("fromBlock", hexIntSchema),
-    toBlock: s.field("toBlock", hexIntSchema),
-    address: s.field("address", S.array(Address.schema)),
-    topics: s.field("topics", topicQuerySchema),
-    // blockHash: ?s.field("blockHash", S.option(S.string)),
-  })
 
   type log = {
     address: Address.t,
@@ -98,18 +43,6 @@ module GetLogs = {
     logIndex: int,
     removed: bool,
   }
-
-  let logSchema = S.object((s): log => {
-    address: s.field("address", Address.schema),
-    topics: s.field("topics", S.array(S.string)),
-    data: s.field("data", S.string),
-    blockNumber: s.field("blockNumber", hexIntSchema),
-    transactionHash: s.field("transactionHash", S.string),
-    transactionIndex: s.field("transactionIndex", hexIntSchema),
-    blockHash: s.field("blockHash", S.string),
-    logIndex: s.field("logIndex", hexIntSchema),
-    removed: s.field("removed", S.bool),
-  })
 
 }
 
@@ -136,29 +69,6 @@ module GetBlockByNumber = {
     transactionsRoot: hex,
     uncles: option<array<hex>>,
   }
-
-  let blockSchema = S.object((s): block => {
-    difficulty: s.field("difficulty", S.null(hexBigintSchema)),
-    extraData: s.field("extraData", S.string),
-    gasLimit: s.field("gasLimit", hexBigintSchema),
-    gasUsed: s.field("gasUsed", hexBigintSchema),
-    hash: s.field("hash", S.string),
-    logsBloom: s.field("logsBloom", S.string),
-    miner: s.field("miner", Address.schema),
-    mixHash: s.field("mixHash", S.null(S.string)),
-    nonce: s.field("nonce", S.null(hexBigintSchema)),
-    number: s.field("number", hexIntSchema),
-    parentHash: s.field("parentHash", S.string),
-    receiptsRoot: s.field("receiptsRoot", S.string),
-    sha3Uncles: s.field("sha3Uncles", S.string),
-    size: s.field("size", hexBigintSchema),
-    stateRoot: s.field("stateRoot", S.string),
-    timestamp: s.field("timestamp", hexIntSchema),
-    totalDifficulty: s.field("totalDifficulty", S.null(hexBigintSchema)),
-    transactions: s.field("transactions", S.array(S.json(~validate=false))),
-    transactionsRoot: s.field("transactionsRoot", S.string),
-    uncles: s.field("uncles", S.null(S.array(S.string))),
-  })
 
 }
 
