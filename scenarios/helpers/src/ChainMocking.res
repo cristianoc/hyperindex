@@ -17,16 +17,6 @@ module Crypto = {
   type digestOptions = | @as("hex") Hex
   @send external digest: (hashedData, digestOptions) => string = "digest"
 
-  let pad = s => "0x" ++ s
-
-  let hashKeccak256 = (input, ~toString) =>
-    crypto
-    ->createHash(Sha3_256)
-    ->update(input->toString)
-    ->digest(Hex)
-    ->pad
-
-  let anyToString = a => a->JSON.stringifyAny->Option.getOrThrow
 }
 
 module Make = (Indexer: Indexer.S) => {

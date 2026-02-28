@@ -730,18 +730,6 @@ let getCompletePath = (~baseUrl, ~pathItems, ~maybeQuery, ~maybeParams, ~jsonQue
   path.contents
 }
 
-let url = (route, input, ~baseUrl="") => {
-  let {pathItems, inputSchema} = route->params
-  let data = input->S.reverseConvertOrThrow(inputSchema)->Obj.magic
-  getCompletePath(
-    ~baseUrl,
-    ~pathItems,
-    ~maybeQuery=data["query"],
-    ~maybeParams=data["params"],
-    ~jsonQuery=false,
-  )
-}
-
 type global = {
   @as("c")
   mutable client: option<client>,
@@ -828,13 +816,5 @@ let client = (baseUrl, ~fetcher=ApiFetcher.default) => {
   {
     baseUrl,
     fetcher,
-  }
-}
-
-let setGlobalClient = (baseUrl, ~fetcher=?) => {
-  switch global.client {
-  | Some(_) =>
-    panic("There's already a global client defined. You can have only one global client at a time.")
-  | None => global.client = Some(client(baseUrl, ~fetcher?))
   }
 }
