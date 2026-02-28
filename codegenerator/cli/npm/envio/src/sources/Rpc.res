@@ -71,9 +71,6 @@ module GetLogs = {
     topics->Belt.Array.map(toTopicFilter)
   }
 
-  let mapTopicQuery = ({topic0, topic1, topic2, topic3}: Internal.topicSelection): topicQuery =>
-    makeTopicQuery(~topic0, ~topic1, ~topic2, ~topic3)
-
   type param = {
     fromBlock: int,
     toBlock: int,
@@ -114,7 +111,6 @@ module GetLogs = {
     removed: s.field("removed", S.bool),
   })
 
-  let route = makeRpcRoute("eth_getLogs", S.tuple1(paramsSchema), S.array(logSchema))
 }
 
 module GetBlockByNumber = {
@@ -164,18 +160,7 @@ module GetBlockByNumber = {
     uncles: s.field("uncles", S.null(S.array(S.string))),
   })
 
-  let route = makeRpcRoute(
-    "eth_getBlockByNumber",
-    S.tuple(s =>
-      {
-        "blockNumber": s.item(0, hexIntSchema),
-        "includeTransactions": s.item(1, S.bool),
-      }
-    ),
-    S.null(blockSchema),
-  )
 }
 
 module GetBlockHeight = {
-  let route = makeRpcRoute("eth_blockNumber", S.tuple(_ => ()), hexIntSchema)
 }
