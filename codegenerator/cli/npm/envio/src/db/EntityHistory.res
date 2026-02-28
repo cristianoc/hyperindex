@@ -191,31 +191,24 @@ let fromTable = (table: table, ~schema: S.t<'entity>): t<'entity> => {
 
   let previousHistoryFields =
     previousChangeFieldNames->Belt.Array.map(fieldName =>
-      mkField(fieldName, Integer, ~isNullable=true)
+      mkField(fieldName, Integer)
     )
 
   let id = "id"
 
   let dataFields = table.fields->Belt.Array.keepMap(field =>
-    switch field {
-    | Field(field) =>
-      switch field.fieldName {
-      //id is not nullable and should be part of the pk
-      | "id" => {...field, fieldName: id, isPrimaryKey: true}->Field->Some
-      //db_write_timestamp can be removed for this. TODO: remove this when we depracate
-      //automatic db_write_timestamp creation
-      | "db_write_timestamp" => None
-      | _ =>
-        {
-          ...field,
-          isNullable: true, //All entity fields are nullable in the case
-          isIndex: false, //No need to index any additional entity data fields in entity history
-        }
-        ->Field
-        ->Some
+    switch field.fieldName {
+    //id should be part of the pk
+    | "id" => {...field, fieldName: id, isPrimaryKey: true}->Some
+    //db_write_timestamp can be removed for this. TODO: remove this when we depracate
+    //automatic db_write_timestamp creation
+    | "db_write_timestamp" => None
+    | _ =>
+      {
+        ...field,
+        isIndex: false, //No need to index any additional entity data fields in entity history
       }
-
-    | DerivedFrom(_) => None
+      ->Some
     }
   )
 
@@ -223,7 +216,7 @@ let fromTable = (table: table, ~schema: S.t<'entity>): t<'entity> => {
 
   let actionField = mkField(actionFieldName, Custom(RowAction.enum.name))
 
-  let serialField = mkField("serial", Serial, ~isNullable=true, ~isIndex=true)
+  let serialField = mkField("serial", Serial, ~isIndex=true)
 
   let dataFieldNames = dataFields->Belt.Array.map(field => field->getFieldName)
 
