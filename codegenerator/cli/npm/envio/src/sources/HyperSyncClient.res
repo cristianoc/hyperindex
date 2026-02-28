@@ -125,12 +125,6 @@ module QueryTypes = {
   type topic2 = topicFilter
   type topic3 = topicFilter
   type topicSelection = (topic0, topic1, topic2, topic3)
-  let makeTopicSelection = (~topic0=[], ~topic1=[], ~topic2=[], ~topic3=[]) => (
-    topic0,
-    topic1,
-    topic2,
-    topic3,
-  )
 
   type logSelection = {
     /**
@@ -144,8 +138,6 @@ module QueryTypes = {
      */
     topics: topicSelection,
   }
-
-  let makeLogSelection = (~address, ~topics) => {address, topics}
 
   type transactionSelection = {
     /**
@@ -448,16 +440,6 @@ module Decoder = {
     | Str(string)
     | Num(bigint)
     | Arr(array<decodedUnderlying>)
-
-  let rec toUnderlying = (d: decodedRaw): decodedUnderlying => {
-    switch d {
-    | DecodedVal(v) => v.val->toUnderlying
-    | DecodedBool(v) => Bool(v)
-    | DecodedStr(v) => Str(v)
-    | DecodedNum(v) => Num(v)
-    | DecodedArr(v) => v->Belt.Array.map(toUnderlying)->Arr
-    }
-  }
 
   type decodedEvent = {
     indexed: array<decodedRaw>,
