@@ -130,8 +130,6 @@ let makeHistoryRowSchema: S.t<'entity> => S.t<historyRow<'entity>> = entitySchem
 }
 
 type t<'entity> = {
-  table: table,
-  createInsertFnQuery: string,
   schema: S.t<historyRow<'entity>>,
   schemaRows: S.t<array<historyRow<'entity>>>,
   insertFn: (Postgres.sql, JSON.t, ~shouldCopyCurrentEntity: bool) => promise<unit>,
@@ -267,7 +265,7 @@ let fromTable = (table: table, ~schema: S.t<'entity>): t<'entity> => {
       [actionFieldName],
     ])->Belt.Array.map(fieldName => `"${fieldName}"`)
 
-  let createInsertFnQuery = {
+  let _createInsertFnQuery = {
     `CREATE OR REPLACE FUNCTION ${insertFnName}(${historyRowArg} ${historyTablePath}, should_copy_current_entity BOOLEAN)
       RETURNS void AS $$
       DECLARE
@@ -334,5 +332,5 @@ let fromTable = (table: table, ~schema: S.t<'entity>): t<'entity> => {
 
   let schema = makeHistoryRowSchema(schema)
 
-  {table, createInsertFnQuery, schema, schemaRows: S.array(schema), insertFn}
+  {schema, schemaRows: S.array(schema), insertFn}
 }
