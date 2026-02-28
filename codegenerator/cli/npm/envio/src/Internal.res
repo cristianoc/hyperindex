@@ -139,21 +139,12 @@ type fuelSupplyParams = {
   subId: string,
   amount: bigint,
 }
-let fuelSupplyParamsSchema = S.schema(s => {
-  subId: s.matches(S.string),
-  amount: s.matches(Utils.Schema.dbBigint),
-})
 @genType
 type fuelTransferParams = {
   to: Address.t,
   assetId: string,
   amount: bigint,
 }
-let fuelTransferParamsSchema = S.schema(s => {
-  to: s.matches(Address.schema),
-  assetId: s.matches(S.string),
-  amount: s.matches(Utils.Schema.dbBigint),
-})
 
 type entity = private {id: string}
 
