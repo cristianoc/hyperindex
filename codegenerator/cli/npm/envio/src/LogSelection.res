@@ -36,17 +36,13 @@ let compressTopicSelections = (topicSelections: array<Internal.topicSelection>) 
   }
 }
 
-type t = {
-  addresses: array<Address.t>,
-  topicSelections: array<Internal.topicSelection>,
-}
+type t
+
+@obj external makeSelection: (~addresses: array<Address.t>, ~topicSelections: array<Internal.topicSelection>) => t = ""
 
 let make = (~addresses, ~topicSelections) => {
   let topicSelections = compressTopicSelections(topicSelections)
-  {addresses, topicSelections}
+  makeSelection(~addresses, ~topicSelections)
 }
 
-type parsedEventFilters = {
-  getEventFiltersOrThrow: ChainMap.Chain.t => Internal.eventFilters,
-  dependsOnAddresses: bool,
-}
+type parsedEventFilters
