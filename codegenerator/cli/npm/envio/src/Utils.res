@@ -2,9 +2,9 @@ external magic: 'a => 'b = "%identity"
 
 let delay = milliseconds =>
   Promise.make((resolve, _reject) => {
-    let _interval = setTimeout(_ => {
+    ignore(setTimeout(_ => {
       resolve()
-    }, milliseconds)
+    }, milliseconds))
   })
 
 module Object = {
