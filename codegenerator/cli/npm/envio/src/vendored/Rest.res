@@ -64,14 +64,6 @@ module ApiFetcher = {
 
   %%private(external fetch: (string, args) => promise<{..}> = "fetch")
 
-  // Inspired by https://github.com/ts-rest/ts-rest/blob/7792ef7bdc352e84a4f5766c53f984a9d630c60e/libs/ts-rest/core/src/lib/client.ts#L102
-  /**
-  * Default fetch api implementation:
-  *
-  * Can be used as a reference for implementing your own fetcher,
-  * or used in the "api" field of ClientArgs to allow you to hook
-  * into the request to run custom logic
-  */
   let default: t = async (args): response => {
     ignore(args.body)
     ignore(args.headers)
@@ -79,7 +71,6 @@ module ApiFetcher = {
     let result = await fetch(args.path, args)
     let contentType = result["headers"]["get"]("content-type")
 
-    // Note: contentType might be null
     if (
       contentType->Obj.magic &&
       contentType->String.includes("application/") &&
@@ -104,6 +95,7 @@ module ApiFetcher = {
       }
     }
   }
+
 }
 
 module Response = {
@@ -295,7 +287,6 @@ type rpc<'input, 'output> = {
 
 type routeParams<'input, 'output> = {
   method: method,
-  path: string,
   pathItems: array<pathItem>,
   inputSchema: S.t<'input>,
   outputSchema: S.t<'output>,
@@ -488,7 +479,6 @@ let params = route => {
         responsesMap->Dict.set("200", response)
         let params = {
           method: Post,
-          path,
           inputSchema,
           outputSchema,
           responses: [response],
@@ -659,7 +649,6 @@ let params = route => {
 
         let params = {
           method: definition.method,
-          path: definition.path,
           inputSchema,
           outputSchema: S.union(responses->Array.map(r => r.schema)),
           responses,
@@ -789,32 +778,11 @@ let getCompletePath = (~baseUrl, ~pathItems, ~maybeQuery, ~maybeParams, ~jsonQue
   path.contents
 }
 
-type global = {
-  @as("c")
-  mutable client: option<client>,
-}
-
-let global = {
-  client: None,
-}
-
-let fetch = (type input response, route: route<input, response>, input, ~client=?) => {
+let fetch = (type input response, route: route<input, response>, input, ~client) => {
   let route = route->(Obj.magic: route<input, response> => route<unknown, unknown>)
   let input = input->(Obj.magic: input => unknown)
 
-  let {path, method, ?jsonQuery, inputSchema, responsesMap, pathItems, isRawBody} = route->params
-
-  let client = switch client {
-  | Some(client) => client
-  | None =>
-    switch global.client {
-    | Some(client) => client
-    | None =>
-      panic(
-        `Client is not set for the ${path} fetch request. Please, use Rest.setGlobalClient or pass a client explicitly to the Rest.fetch arguments`,
-      )
-    }
-  }
+  let {method, ?jsonQuery, inputSchema, responsesMap, pathItems, isRawBody} = route->params
 
   let data = input->S.reverseConvertOrThrow(inputSchema)->Obj.magic
 
@@ -872,7 +840,8 @@ let fetch = (type input response, route: route<input, response>, input, ~client=
   })
 }
 
-let client = (baseUrl, ~fetcher=ApiFetcher.default) => {
+let client = (baseUrl, ~fetcher) => {
+  ignore(ApiFetcher.default)
   {
     baseUrl,
     fetcher,

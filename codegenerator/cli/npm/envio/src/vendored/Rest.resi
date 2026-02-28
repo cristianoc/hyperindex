@@ -151,7 +151,6 @@ type pathItem = Static(string) | Param(pathParam)
 
 type routeParams<'input, 'output> = {
   method: method,
-  path: string,
   pathItems: array<pathItem>,
   inputSchema: S.t<'input>,
   outputSchema: S.t<'output>,
@@ -181,6 +180,6 @@ type client = {
   fetcher: ApiFetcher.t,
 }
 
-let client: (string, ~fetcher: ApiFetcher.t=?) => client
+let client: (string, ~fetcher: ApiFetcher.t) => client
 
-let fetch: (route<'input, 'output>, 'input, ~client: client=?) => promise<'output>
+let fetch: (route<'input, 'output>, 'input, ~client: client) => promise<'output>

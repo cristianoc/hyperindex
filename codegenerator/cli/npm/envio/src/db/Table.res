@@ -24,7 +24,6 @@ type fieldOrDerived = field
 let mkField = (
   ~isPrimaryKey=false,
   ~isIndex=false,
-  ~linkedEntity=?,
   fieldName,
   fieldType,
 ) =>
@@ -33,7 +32,7 @@ let mkField = (
     fieldType,
     isPrimaryKey,
     isIndex,
-    linkedEntity,
+    linkedEntity: None,
   }
 
 let getUserDefinedFieldName = (field: fieldOrDerived) => field.fieldName
@@ -52,11 +51,11 @@ type table = {
   compositeIndices: array<array<string>>,
 }
 
-let mkTable = (tableName, ~schemaName, ~compositeIndices=[], ~fields) => {
+let mkTable = (tableName, ~schemaName, ~fields) => {
   tableName,
   schemaName,
   fields,
-  compositeIndices,
+  compositeIndices: [],
 }
 
 let getPrimaryKeyFieldNames = table =>
