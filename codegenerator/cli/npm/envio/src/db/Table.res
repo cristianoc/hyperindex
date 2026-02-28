@@ -54,13 +54,6 @@ let mkField = (
     defaultValue: default,
   }->Field
 
-let mkDerivedFromField = (fieldName, ~derivedFromEntity, ~derivedFromField) =>
-  {
-    fieldName,
-    derivedFromField,
-    derivedFromEntity,
-  }->DerivedFrom
-
 let getUserDefinedFieldName = fieldOrDerived =>
   switch fieldOrDerived {
   | Field({fieldName})
@@ -77,10 +70,6 @@ let getFieldName = fieldOrDerived =>
   | Field(field) => field->getDbFieldName
   | DerivedFrom({fieldName}) => fieldName
   }
-
-let getFieldType = (field: field) => {
-  (field.fieldType :> string) ++ (field.isArray ? "[]" : "")
-}
 
 type table = {
   tableName: string,
@@ -111,10 +100,6 @@ let getFields = table =>
     | DerivedFrom(_) => None
     }
   )
-
-let getFieldNames = table => {
-  table->getFields->Array.map(getDbFieldName)
-}
 
 let getNonDefaultFields = table =>
   table.fields->Array.filterMap(field =>
@@ -343,18 +328,4 @@ module PostgresInterop = {
     Promise.all(responses)
   }
 
-  let makeBatchSetFn = (~table, ~schema: S.t<'a>): batchSetFn<'a> => {
-    let batchSetFn: pgFn<array<JSON.t>, unit> = table->makeBatchSetFnString->eval
-    let parseOrThrow = S.compile(
-      S.array(schema),
-      ~input=Value,
-      ~output=Json,
-      ~mode=Sync,
-      ~typeValidation=true,
-    )
-    async (sql, rows) => {
-      let rowsJson = rows->parseOrThrow->(Utils.magic: JSON.t => array<JSON.t>)
-      let _res = await chunkBatchQuery(sql, rowsJson, batchSetFn)
-    }
-  }
 }
