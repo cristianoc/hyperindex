@@ -2,10 +2,6 @@ module Chain: {
   type t
 
   external toChainId: t => int = "%identity"
-
-  let toString: t => string
-
-  let makeUnsafe: (~chainId: int) => t
 }
 
 type t<'a>
