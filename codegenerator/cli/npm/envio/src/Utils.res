@@ -25,9 +25,6 @@ module Object = {
 module Option = {}
 
 module Tuple = {
-  /**Access a tuple value by its index*/
-  @warning("-27")
-  let get = (tuple: 'a, index: int): option<'b> => %raw(`tuple[index]`)
 }
 
 module Dict = {
