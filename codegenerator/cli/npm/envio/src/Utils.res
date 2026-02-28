@@ -23,13 +23,6 @@ module Object = {
 }
 
 module Option = {
-  let mapNone = (opt: option<'a>, val: 'b): option<'b> => {
-    switch opt {
-    | None => Some(val)
-    | Some(_) => None
-    }
-  }
-
   let catchToNone: (unit => 'a) => option<'a> = unsafeFunc => {
     try {
       unsafeFunc()->Some
