@@ -166,8 +166,6 @@ type routeParams<'input, 'output> = {
   jsonQuery?: bool,
 }
 
-let params: route<'input, 'output> => routeParams<'input, 'output>
-
 external route: (unit => definition<'input, 'output>) => route<'input, 'output> = "%identity"
 external rpc: (unit => rpc<'input, 'output>) => route<'input, 'output> = "%identity"
 
@@ -176,15 +174,6 @@ module ApiFetcher: {
   type response = {data: unknown, status: int, headers: dict<unknown>}
   type t = args => promise<response>
 
-  // Inspired by https://github.com/ts-rest/ts-rest/blob/7792ef7bdc352e84a4f5766c53f984a9d630c60e/libs/ts-rest/core/src/lib/client.ts#L102
-  /**
-  * Default fetch api implementation:
-  *
-  * Can be used as a reference for implementing your own fetcher,
-  * or used in the "api" field of ClientArgs to allow you to hook
-  * into the request to run custom logic
-  */
-  let default: t
 }
 
 type client = {
@@ -192,10 +181,6 @@ type client = {
   fetcher: ApiFetcher.t,
 }
 
-let url: (route<'input, 'output>, 'input, ~baseUrl: string=?) => string
-
 let client: (string, ~fetcher: ApiFetcher.t=?) => client
-
-let setGlobalClient: (string, ~fetcher: ApiFetcher.t=?) => unit
 
 let fetch: (route<'input, 'output>, 'input, ~client: client=?) => promise<'output>
