@@ -1,8 +1,4 @@
-type blockDataWithTimestamp = {
-  blockHash: string,
-  blockNumber: int,
-  blockTimestamp: int,
-}
+type blockDataWithTimestamp
 
 type blockData = {
   // Block hash is used for actual comparison to test for reorg
@@ -12,10 +8,7 @@ type blockData = {
 
 external generalizeBlockDataWithTimestamp: blockDataWithTimestamp => blockData = "%identity"
 
-type reorgGuard = {
-  lastBlockScannedData: blockData,
-  firstBlockParentNumberAndHash: option<blockData>,
-}
+type reorgGuard
 
 type reorgDetected = {
   scannedBlock: blockData,
