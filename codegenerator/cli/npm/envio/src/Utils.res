@@ -34,13 +34,6 @@ module Dict = {
    */
   external dangerouslyGetNonOption: (dict<'a>, string) => option<'a> = ""
 
-  let push = (dict, key, value) => {
-    switch dict->dangerouslyGetNonOption(key) {
-    | Some(arr) => arr->Array.push(value)->ignore
-    | None => dict->Dict.set(key, [value])
-    }
-  }
-
   let pushMany = (dict, key, values) => {
     switch dict->dangerouslyGetNonOption(key) {
     | Some(arr) => arr->Array.pushMany(values)->ignore
