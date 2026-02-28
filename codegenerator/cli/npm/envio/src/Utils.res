@@ -23,12 +23,6 @@ module Object = {
 }
 
 module Option = {
-  let flatten = opt =>
-    switch opt {
-    | None => None
-    | Some(opt) => opt
-    }
-
   let getExn = (opt, message) => {
     switch opt {
     | None => JsError.throwWithMessage(message)
