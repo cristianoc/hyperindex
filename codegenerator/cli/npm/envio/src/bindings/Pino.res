@@ -38,8 +38,6 @@ external levels: t => 'a = "levels"
 // Bind to the 'level' property setter
 @set external setLevel: (t, logLevel) => unit = "level"
 
-@ocaml.doc(`Identity function to help co-erce any type to a pino log message`)
-let createPinoMessage = (message): pinoMessageBlob => Utils.magic(message)
 let createPinoMessageWithError = (message, err): pinoMessageBlobWithError => {
   //See https://github.com/pinojs/pino-std-serializers for standard pino serializers
   //for common objects. We have also defined the serializer in this format in the
@@ -53,7 +51,6 @@ let createPinoMessageWithError = (message, err): pinoMessageBlobWithError => {
 module Transport = {
   type t
   type optionsObject
-  let makeTransportOptions: 'a => optionsObject = Utils.magic
 
   // NOTE: this config is pretty polymorphic - so keeping this as all optional fields.
   type rec transportTarget = {
@@ -104,7 +101,6 @@ type options = {
 @module external makeWithOptionsAndTransport: (options, Transport.t) => t = "pino"
 
 type childParams
-let createChildParams: 'a => childParams = Utils.magic
 @send external child: (t, childParams) => t = "child"
 
 module ECS = {
@@ -135,41 +131,4 @@ module MultiStreamLogger = {
   @module("pino-pretty")
   external prettyFactory: prettyFactoryOpts => string => string = "prettyFactory"
 
-  let makeFormatter = logLevels => {
-    prettyFactory({
-      customLevels: logLevels,
-      customColors: "fatal:bgRed,error:red,warn:yellow,info:green,udebug:bgBlue,uinfo:bgGreen,uwarn:bgYellow,uerror:bgRed,debug:blue,trace:gray",
-    })
-  }
-
-  let makeStreams = (~userLogLevel, ~formatter, ~logFile, ~defaultFileLogLevel) => {
-    let stream = {
-      stream: {write: v => formatter(v)->Console.log},
-      level: userLogLevel,
-    }
-    let maybeFileStream = logFile->Belt.Option.mapWithDefault([], dest => [
-      {
-        level: defaultFileLogLevel,
-        stream: destination({dest, sync: false, mkdir: true}),
-      },
-    ])
-    [stream]->Belt.Array.concat(maybeFileStream)
-  }
-
-  let make = (
-    ~userLogLevel: logLevel,
-    ~customLevels: dict<int>,
-    ~logFile: option<string>,
-    ~options: option<options>,
-    ~defaultFileLogLevel,
-  ) => {
-    let options = switch options {
-    | Some(opts) => {...opts, customLevels, level: userLogLevel}
-    | None => {customLevels, level: userLogLevel}
-    }
-    let formatter = makeFormatter(customLevels)
-    let ms = makeStreams(~userLogLevel, ~formatter, ~logFile, ~defaultFileLogLevel)->multistream
-
-    makeWithMultiStream(options, ms)
-  }
 }
