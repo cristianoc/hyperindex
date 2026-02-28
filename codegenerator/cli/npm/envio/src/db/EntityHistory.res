@@ -236,20 +236,6 @@ let fromTable = (table: table, ~schema: S.t<'entity>): t<'entity> => {
   )
 
   let insertFnName = `"insert_${table.tableName}"`
-  let historyRowArg = "history_row"
-  let historyTablePath = `"${originSchemaName}"."${historyTableName}"`
-  let originTablePath = `"${originSchemaName}"."${originTableName}"`
-
-  let previousHistoryFieldsAreNullStr =
-    previousChangeFieldNames
-    ->Belt.Array.map(fieldName => `${historyRowArg}.${fieldName} IS NULL`)
-    ->Array.join(" OR ")
-
-  let currentChangeFieldNamesCommaSeparated = currentChangeFieldNames->Array.join(", ")
-
-  let dataFieldNamesDoubleQuoted = dataFieldNames->Belt.Array.map(fieldName => `"${fieldName}"`)
-  let dataFieldNamesCommaSeparated = dataFieldNamesDoubleQuoted->Array.join(", ")
-
   let allFieldNamesDoubleQuoted =
     Belt.Array.concatMany([
       currentChangeFieldNames,
@@ -257,62 +243,6 @@ let fromTable = (table: table, ~schema: S.t<'entity>): t<'entity> => {
       dataFieldNames,
       [actionFieldName],
     ])->Belt.Array.map(fieldName => `"${fieldName}"`)
-
-  let _createInsertFnQuery = {
-    `CREATE OR REPLACE FUNCTION ${insertFnName}(${historyRowArg} ${historyTablePath}, should_copy_current_entity BOOLEAN)
-      RETURNS void AS $$
-      DECLARE
-        v_previous_record RECORD;
-        v_origin_record RECORD;
-      BEGIN
-        -- Check if previous values are not provided
-        IF ${previousHistoryFieldsAreNullStr} THEN
-          -- Find the most recent record for the same id
-          SELECT ${currentChangeFieldNamesCommaSeparated} INTO v_previous_record
-          FROM ${historyTablePath}
-          WHERE ${id} = ${historyRowArg}.${id}
-          ORDER BY ${currentChangeFieldNames
-      ->Belt.Array.map(fieldName => fieldName ++ " DESC")
-      ->Array.join(", ")}
-          LIMIT 1;
-
-          -- If a previous record exists, use its values
-          IF FOUND THEN
-            ${Belt.Array.zip(currentChangeFieldNames, previousChangeFieldNames)
-      ->Belt.Array.map(((currentFieldName, previousFieldName)) => {
-        `${historyRowArg}.${previousFieldName} := v_previous_record.${currentFieldName};`
-      })
-      ->Array.join(" ")}
-            ElSIF should_copy_current_entity THEN
-            -- Check if a value for the id exists in the origin table and if so, insert a history row for it.
-            SELECT ${dataFieldNamesCommaSeparated} FROM ${originTablePath} WHERE id = ${historyRowArg}.${id} INTO v_origin_record;
-            IF FOUND THEN
-              INSERT INTO ${historyTablePath} (${currentChangeFieldNamesCommaSeparated}, ${dataFieldNamesCommaSeparated}, "${actionFieldName}")
-              -- SET the current change data fields to 0 since we don't know what they were
-              -- and it doesn't matter provided they are less than any new values
-              VALUES (${currentChangeFieldNames
-      ->Belt.Array.map(_ => "0")
-      ->Array.join(", ")}, ${dataFieldNames
-      ->Belt.Array.map(fieldName => `v_origin_record."${fieldName}"`)
-      ->Array.join(", ")}, 'SET');
-
-              ${previousChangeFieldNames
-      ->Belt.Array.map(previousFieldName => {
-        `${historyRowArg}.${previousFieldName} := 0;`
-      })
-      ->Array.join(" ")}
-            END IF;
-          END IF;
-        END IF;
-
-        INSERT INTO ${historyTablePath} (${allFieldNamesDoubleQuoted->Array.join(", ")})
-        VALUES (${allFieldNamesDoubleQuoted
-      ->Belt.Array.map(fieldName => `${historyRowArg}.${fieldName}`)
-      ->Array.join(", ")});
-      END;
-      $$ LANGUAGE plpgsql;
-      `
-  }
 
   let insertFnString = `(sql, rowArgs, shouldCopyCurrentEntity) =>
       sql\`select ${insertFnName}(ROW(${allFieldNamesDoubleQuoted

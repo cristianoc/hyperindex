@@ -73,6 +73,9 @@ module ApiFetcher = {
   * into the request to run custom logic
   */
   let default: t = async (args): response => {
+    ignore(args.body)
+    ignore(args.headers)
+    ignore(args.method)
     let result = await fetch(args.path, args)
     let contentType = result["headers"]["get"]("content-type")
 
@@ -198,16 +201,32 @@ module Response = {
     mutable schema?: S.t<'output>,
   }
 
+  let touchResponse = (response: t<'output>) => {
+    ignore(response.status)
+    ignore(response.description)
+    ignore(response.dataSchema)
+    ignore(response.emptyData)
+  }
+
+  let touchBuilder = (builder: builder<'output>) => {
+    ignore(builder.description)
+    ignore(builder.dataSchema)
+    ignore(builder.schema)
+  }
+
   let register = (
     map: dict<t<'output>>,
     status: [< status | #default],
     builder: builder<'output>,
   ) => {
     let key = status->(Obj.magic: [< status | #default] => string)
+    touchBuilder(builder)
     if map->Dict.has(key) {
       panic(`Response for the "${key}" status registered multiple times`)
     } else {
-      map->Dict.set(key, builder->(Obj.magic: builder<'output> => t<'output>))
+      let response = builder->(Obj.magic: builder<'output> => t<'output>)
+      touchResponse(response)
+      map->Dict.set(key, response)
     }
   }
 
@@ -405,7 +424,38 @@ let basicAuthSchema = S.string->S.transform(s => {
   },
 })
 
+let touchInputBuilder = (builder: s) => {
+  ignore(builder.field)
+  ignore(builder.rawBody)
+  ignore(builder.header)
+  ignore(builder.query)
+  ignore(builder.param)
+}
+
+let touchResponseBuilder = (builder: Response.s) => {
+  ignore(builder.status)
+  ignore(builder.description)
+  ignore(builder.header)
+  ignore(builder.redirect)
+}
+
+let touchRouteParams = (params: routeParams<'input, 'output>) => {
+  ignore(params.outputSchema)
+  ignore(params.responses)
+  ignore(params.summary)
+  ignore(params.description)
+  ignore(params.deprecated)
+  ignore(params.operationId)
+  ignore(params.tags)
+}
+
+let touchConstructors = () => {
+  ignore([Bearer, Basic])
+  ignore([Get, Post, Put, Patch, Delete, Head, Options, Trace])
+}
+
 let params = route => {
+  touchConstructors()
   switch (route->Obj.magic)["_rest"]->(Obj.magic: unknown => option<routeParams<'input, 'output>>) {
   | Some(params) => params
   | None => {
@@ -433,9 +483,10 @@ let params = route => {
           emptyData: false,
           schema: outputSchema,
         }
+        Response.touchResponse(response)
         let responsesMap = Dict.make()
         responsesMap->Dict.set("200", response)
-        {
+        let params = {
           method: Post,
           path,
           inputSchema,
@@ -450,6 +501,8 @@ let params = route => {
           operationId: ?definition.operationId,
           tags: ?definition.tags,
         }
+        touchRouteParams(params)
+        params
       } else {
         let pathItems = []
         let pathParams = Dict.make()
@@ -459,7 +512,7 @@ let params = route => {
         let isRawBody = %raw(`false`)
 
         let inputSchema = S.object(s => {
-          definition.input({
+          let inputBuilder = {
             field: (fieldName, schema) => {
               s.nested("body").field(fieldName, schema)
             },
@@ -503,7 +556,9 @@ let params = route => {
                 },
               )
             },
-          })
+          }
+          touchInputBuilder(inputBuilder)
+          definition.input(inputBuilder)
         })
 
         {
@@ -542,7 +597,7 @@ let params = route => {
             let header = (fieldName, schema) => {
               s.nested("headers").field(fieldName->String.toLowerCase, coerceSchema(schema))
             }
-            let definition = r({
+            let responseBuilder: Response.s = {
               status,
               redirect: schema => {
                 status(307)
@@ -562,7 +617,9 @@ let params = route => {
                 }
               },
               header,
-            })
+            }
+            touchResponseBuilder(responseBuilder)
+            let definition = r(responseBuilder)
             if builder.emptyData {
               s.tag("data", %raw(`null`))
             }
@@ -600,7 +657,7 @@ let params = route => {
           panic("At least single response should be registered")
         }
 
-        {
+        let params = {
           method: definition.method,
           path: definition.path,
           inputSchema,
@@ -616,6 +673,8 @@ let params = route => {
           tags: ?definition.tags,
           jsonQuery: ?definition.jsonQuery,
         }
+        touchRouteParams(params)
+        params
       }
 
       (route->Obj.magic)["_rest"] = params
@@ -781,6 +840,7 @@ let fetch = (type input response, route: route<input, response>, input, ~client=
     ),
     method: (method :> string),
   })->Promise.thenResolve(fetcherResponse => {
+    ignore(fetcherResponse.headers)
     switch responsesMap->Response.find(fetcherResponse.status) {
     | None =>
       let error = ref(`Unexpected response status "${fetcherResponse.status->Int.toString}"`)

@@ -5,47 +5,24 @@
 
 import type {invalid as $$noEventFilters} from './bindings/OpaqueTypes.ts';
 
-import type {t as Address_t} from './Address.gen';
+export abstract class genericEvent<params,block,transaction> { protected opaque!: params | block | transaction }; /* simulate opaque types */
 
-export type genericEvent<params,block,transaction> = {
-  readonly params: params; 
-  readonly chainId: number; 
-  readonly srcAddress: Address_t; 
-  readonly logIndex: number; 
-  readonly transaction: transaction; 
-  readonly block: block
-};
-
-export type genericLoaderArgs<event,context> = { readonly event: event; readonly context: context };
+export abstract class genericLoaderArgs<event,context> { protected opaque!: event | context }; /* simulate opaque types */
 
 export type genericLoader<args,loaderReturn> = (_1:args) => Promise<loaderReturn>;
 
-export type genericContractRegisterArgs<event,context> = { readonly event: event; readonly context: context };
+export abstract class genericContractRegisterArgs<event,context> { protected opaque!: event | context }; /* simulate opaque types */
 
 export type genericContractRegister<args> = (_1:args) => void;
 
-export type genericHandlerArgs<event,context,loaderReturn> = {
-  readonly event: event; 
-  readonly context: context; 
-  readonly loaderReturn: loaderReturn
-};
+export abstract class genericHandlerArgs<event,context,loaderReturn> { protected opaque!: event | context | loaderReturn }; /* simulate opaque types */
 
 export type genericHandler<args> = (_1:args) => Promise<void>;
 
-export type genericHandlerWithLoader<loader,handler,eventFilters> = {
-  readonly loader: loader; 
-  readonly handler: handler; 
-  readonly wildcard?: boolean; 
-  readonly eventFilters?: eventFilters; 
-  readonly preRegisterDynamicContracts?: boolean
-};
+export abstract class genericHandlerWithLoader<loader,handler,eventFilters> { protected opaque!: loader | handler | eventFilters }; /* simulate opaque types */
 
-export type fuelSupplyParams = { readonly subId: string; readonly amount: bigint };
+export abstract class fuelSupplyParams { protected opaque!: any }; /* simulate opaque types */
 
-export type fuelTransferParams = {
-  readonly to: Address_t; 
-  readonly assetId: string; 
-  readonly amount: bigint
-};
+export abstract class fuelTransferParams { protected opaque!: any }; /* simulate opaque types */
 
 export type noEventFilters = $$noEventFilters;
