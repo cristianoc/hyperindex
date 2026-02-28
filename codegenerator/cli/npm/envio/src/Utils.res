@@ -48,8 +48,6 @@ module Array = {
     | _ => false
     }
 
-  let last = (arr: array<'a>): option<'a> => arr->Belt.Array.get(arr->Array.length - 1)
-
   /** 
   Currently a bug in rescript if you ignore the return value of spliceInPlace 
   https://github.com/rescript-lang/rescript-compiler/issues/6991
@@ -202,8 +200,6 @@ module BigInt = {
 
   module Bitwise = {
     @@warning("-27")
-    let shift_left = (a: bigint, b: bigint): bigint => %raw("a << b")
-    let logand = (a: bigint, b: bigint): bigint => %raw("a & b")
     @@warning("+27")
   }
 }
