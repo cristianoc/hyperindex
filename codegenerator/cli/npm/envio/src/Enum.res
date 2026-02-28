@@ -12,7 +12,7 @@ let make = (~name, ~variants) => {
   schema: S.enum(variants),
   default: switch variants->Belt.Array.get(0) {
   | Some(v) => v
-  | None => Js.Exn.raiseError("No variants defined for enum " ++ name)
+  | None => JsError.throwWithMessage("No variants defined for enum " ++ name)
   },
 }
 

@@ -1,0 +1,15 @@
+{
+  "name": "hyperindex-rescript-monorepo",
+  "private": true,
+  "packageManager": "pnpm@10.23.0",
+  "dependencies": {
+    "envio": "workspace:*",
+    "helpers": "workspace:*"
+  },
+  "devDependencies": {
+    "rescript": "12.2.0"
+  },
+  "scripts": {
+    "build:rescript": "pnpm exec rescript"
+  }
+}

@@ -10,5 +10,5 @@
     "in-source": true
   },
   "suffix": ".res.js",
-  "bs-dependencies": ["rescript-schema", "envio"]
+  "dependencies": ["rescript-schema", "envio"]
 }

@@ -18,7 +18,7 @@ type buffer
 type secureContext
 
 type onread = {
-  buffer: Js.Nullable.t<array<int>> => array<int>,
+  buffer: Nullable.t<array<int>> => array<int>,
   callback: (int, array<int>) => unit,
 }
 
@@ -33,14 +33,14 @@ type tlsConnectOptions = {
   pskCallback?: unit => unit,
   @as("ALPNProtocols") alpnProtocols?: array<string>, //| array<Buffer> | array<typedArray> | array<DataView> | Buffer | typedArray | DataView,
   servername?: string,
-  checkServerIdentity?: 'a. (string, 'a) => option<Js.Exn.t>,
+  checkServerIdentity?: 'a. (string, 'a) => option<JsExn.t>,
   session?: buffer,
   minDHSize?: int /* Default: 1024 */,
   highWaterMark?: int /* Default: 16 * 1024 */,
   secureContext?: secureContext,
   onread?: onread,
   /* Additional properties from tls.createSecureContext() and socket.connect() */
-  // [key: string]: Js.Json.t,
+  // [key: string]: JSON.t,
 }
 
 @unboxed

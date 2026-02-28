@@ -57,7 +57,7 @@ module GetLogs = {
 
     //Remove all empty topics from the end of the array
     while isLastTopicEmpty() {
-      topics->Js.Array2.pop->ignore
+      topics->Array.pop->ignore
     }
 
     let toTopicFilter = topic => {
@@ -136,7 +136,7 @@ module GetBlockByNumber = {
     stateRoot: hex,
     timestamp: int,
     totalDifficulty: option<bigint>,
-    transactions: array<Js.Json.t>,
+    transactions: array<JSON.t>,
     transactionsRoot: hex,
     uncles: option<array<hex>>,
   }

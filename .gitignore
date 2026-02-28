@@ -11,3 +11,8 @@ scenarios/**/*.res.js
 scenarios/**/*.gen.ts
 scenarios/**/lib/*
 scenarios/**/node_modules/*
+
+# Root build artifacts
+lib/
+
+node_modules/

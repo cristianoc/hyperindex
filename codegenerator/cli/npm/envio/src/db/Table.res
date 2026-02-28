@@ -147,10 +147,10 @@ let getNonDefaultFieldNames = table => {
 }
 
 let getFieldByName = (table, fieldName) =>
-  table.fields->Js.Array2.find(field => field->getUserDefinedFieldName === fieldName)
+  table.fields->Array.find(field => field->getUserDefinedFieldName === fieldName)
 
 let getFieldByDbName = (table, dbFieldName) =>
-  table.fields->Js.Array2.find(field =>
+  table.fields->Array.find(field =>
     switch field {
     | Field(f) => f->getDbFieldName
     | DerivedFrom({fieldName}) => fieldName
@@ -188,10 +188,10 @@ let toSqlParams = (table: table, ~schema) => {
   let arrayFieldTypes = []
   let hasArrayField = ref(false)
 
-  let dbSchema: S.t<Js.Dict.t<unknown>> = S.schema(s =>
+  let dbSchema: S.t<Dict.t<unknown>> = S.schema(s =>
     switch schema->S.classify {
     | Object({items}) =>
-      let dict = Js.Dict.empty()
+      let dict = Dict.make()
       items->Belt.Array.forEach(({location, inlinedLocation, schema}) => {
         let rec coerceSchema = schema =>
           switch schema->S.classify {
@@ -222,18 +222,18 @@ let toSqlParams = (table: table, ~schema) => {
         }
 
         quotedFieldNames
-        ->Js.Array2.push(inlinedLocation)
+        ->Array.push(inlinedLocation)
         ->ignore
         switch field {
         | Field({isPrimaryKey: false}) =>
           quotedNonPrimaryFieldNames
-          ->Js.Array2.push(inlinedLocation)
+          ->Array.push(inlinedLocation)
           ->ignore
         | _ => ()
         }
 
         arrayFieldTypes
-        ->Js.Array2.push(
+        ->Array.push(
           switch field {
           | Field(f) =>
             switch f.fieldType {
@@ -245,10 +245,10 @@ let toSqlParams = (table: table, ~schema) => {
           } ++ "[]",
         )
         ->ignore
-        dict->Js.Dict.set(location, s.matches(schema->coerceSchema))
+        dict->Dict.set(location, s.matches(schema->coerceSchema))
       })
       dict
-    | _ => Js.Exn.raiseError("Failed creating db schema. Expected an object schema for table")
+    | _ => JsError.throwWithMessage("Failed creating db schema. Expected an object schema for table")
     }
   )
 
@@ -282,7 +282,15 @@ let getSingleIndices = (table): array<string> => {
   ->Utils.Array.flatten
   ->Set.fromArray
   ->Set.toArray
-  ->Js.Array2.sortInPlace
+  ->Array.toSorted((a, b) =>
+    if a < b {
+      -1.
+    } else if a > b {
+      1.
+    } else {
+      0.
+    }
+  )
 }
 
 /*
@@ -306,12 +314,12 @@ module PostgresInterop = {
     `(sql, rows) => {
       return sql\`
         INSERT INTO "${table.schemaName}"."${table.tableName}"
-        \${sql(rows, ${fieldNamesInQuotes->Js.Array2.joinWith(", ")})}
-        ON CONFLICT(${table->getPrimaryKeyFieldNames->Js.Array2.joinWith(", ")}) DO UPDATE
+        \${sql(rows, ${fieldNamesInQuotes->Array.join(", ")})}
+        ON CONFLICT(${table->getPrimaryKeyFieldNames->Array.join(", ")}) DO UPDATE
         SET
         ${fieldNamesInQuotes
       ->Array.map(fieldNameInQuotes => `${fieldNameInQuotes} = EXCLUDED.${fieldNameInQuotes}`)
-      ->Js.Array2.joinWith(", ")};\`
+      ->Array.join(", ")};\`
     }`
   }
 
@@ -327,16 +335,16 @@ module PostgresInterop = {
     // Split entityDataArray into chunks of maxItemsPerQuery
     while shouldContinue() {
       let chunk =
-        entityDataArray->Js.Array2.slice(~start=i.contents, ~end_=i.contents + maxItemsPerQuery)
+        entityDataArray->Array.slice(~start=i.contents, ~end=i.contents + maxItemsPerQuery)
       let response = queryToExecute(sql, chunk)
-      responses->Js.Array2.push(response)->ignore
+      responses->Array.push(response)->ignore
       i := i.contents + maxItemsPerQuery
     }
     Promise.all(responses)
   }
 
   let makeBatchSetFn = (~table, ~schema: S.t<'a>): batchSetFn<'a> => {
-    let batchSetFn: pgFn<array<Js.Json.t>, unit> = table->makeBatchSetFnString->eval
+    let batchSetFn: pgFn<array<JSON.t>, unit> = table->makeBatchSetFnString->eval
     let parseOrThrow = S.compile(
       S.array(schema),
       ~input=Value,
@@ -345,7 +353,7 @@ module PostgresInterop = {
       ~typeValidation=true,
     )
     async (sql, rows) => {
-      let rowsJson = rows->parseOrThrow->(Utils.magic: Js.Json.t => array<Js.Json.t>)
+      let rowsJson = rows->parseOrThrow->(Utils.magic: JSON.t => array<JSON.t>)
       let _res = await chunkBatchQuery(sql, rowsJson, batchSetFn)
     }
   }

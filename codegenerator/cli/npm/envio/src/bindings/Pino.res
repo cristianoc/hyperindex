@@ -43,7 +43,7 @@ let createPinoMessage = (message): pinoMessageBlob => Utils.magic(message)
 let createPinoMessageWithError = (message, err): pinoMessageBlobWithError => {
   //See https://github.com/pinojs/pino-std-serializers for standard pino serializers
   //for common objects. We have also defined the serializer in this format in the
-  // serializers type below: `type serializers = {err: Js.Json.t => Js.Json.t}`
+  // serializers type below: `type serializers = {err: JSON.t => JSON.t}`
   Utils.magic({
     "msg": message,
     "err": err,
@@ -72,12 +72,12 @@ module Transport = {
 type hooks = {logMethod: (array<string>, string, logLevel) => unit}
 
 type formatters = {
-  level: (string, int) => Js.Json.t,
-  bindings: Js.Json.t => Js.Json.t,
-  log: Js.Json.t => Js.Json.t,
+  level: (string, int) => JSON.t,
+  bindings: JSON.t => JSON.t,
+  log: JSON.t => JSON.t,
 }
 
-type serializers = {err: Js.Json.t => Js.Json.t}
+type serializers = {err: JSON.t => JSON.t}
 
 type options = {
   name?: string,
@@ -86,14 +86,14 @@ type options = {
   useOnlyCustomLevels?: bool,
   depthLimit?: int,
   edgeLimit?: int,
-  mixin?: unit => Js.Json.t,
-  mixinMergeStrategy?: (Js.Json.t, Js.Json.t) => Js.Json.t,
+  mixin?: unit => JSON.t,
+  mixinMergeStrategy?: (JSON.t, JSON.t) => JSON.t,
   redact?: array<string>,
   hooks?: hooks,
   formatters?: formatters,
   serializers?: serializers,
   msgPrefix?: string,
-  base?: Js.Json.t,
+  base?: JSON.t,
   enabled?: bool,
   crlf?: bool,
   timestamp?: bool,
@@ -144,7 +144,7 @@ module MultiStreamLogger = {
 
   let makeStreams = (~userLogLevel, ~formatter, ~logFile, ~defaultFileLogLevel) => {
     let stream = {
-      stream: {write: v => formatter(v)->Js.log},
+      stream: {write: v => formatter(v)->Console.log},
       level: userLogLevel,
     }
     let maybeFileStream = logFile->Belt.Option.mapWithDefault([], dest => [

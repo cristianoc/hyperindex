@@ -19,7 +19,7 @@ module Evm = {
       fromStringOrThrow(string)
     } catch {
     | _ =>
-      Js.Exn.raiseError(
+      JsError.throwWithMessage(
         `Address "${string}" is invalid. Expected a 20-byte hex string starting with 0x.`,
       )
     }

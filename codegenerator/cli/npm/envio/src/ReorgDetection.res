@@ -77,10 +77,10 @@ module LastBlockScannedHashes: {
   }
 
   let makeWithData = (blocks, ~confirmedBlockThreshold) => {
-    let dataByBlockNumber = Js.Dict.empty()
+    let dataByBlockNumber = Dict.make()
 
     blocks->Belt.Array.forEach(block => {
-      dataByBlockNumber->Js.Dict.set(block.blockNumber->Js.Int.toString, block)
+      dataByBlockNumber->Dict.set(block.blockNumber->Int.toString, block)
     })
 
     {
@@ -91,7 +91,7 @@ module LastBlockScannedHashes: {
   //Instantiates empty LastBlockHashes
   let empty = (~confirmedBlockThreshold) => {
     confirmedBlockThreshold,
-    dataByBlockNumber: Js.Dict.empty(),
+    dataByBlockNumber: Dict.make(),
   }
 
   let getDataByBlockNumberCopyInThreshold = (
@@ -99,17 +99,17 @@ module LastBlockScannedHashes: {
     ~currentBlockHeight,
   ) => {
     // Js engine automatically orders numeric object keys
-    let ascBlockNumberKeys = dataByBlockNumber->Js.Dict.keys
+    let ascBlockNumberKeys = dataByBlockNumber->Dict.keysToArray
     let thresholdBlockNumber = currentBlockHeight - confirmedBlockThreshold
 
-    let copy = Js.Dict.empty()
+    let copy = Dict.make()
 
     for idx in 0 to ascBlockNumberKeys->Array.length - 1 {
-      let blockNumberKey = ascBlockNumberKeys->Js.Array2.unsafe_get(idx)
-      let scannedBlock = dataByBlockNumber->Js.Dict.unsafeGet(blockNumberKey)
+      let blockNumberKey = ascBlockNumberKeys->Array.getUnsafe(idx)
+      let scannedBlock = dataByBlockNumber->Dict.getUnsafe(blockNumberKey)
       let isInReorgThreshold = scannedBlock.blockNumber >= thresholdBlockNumber
       if isInReorgThreshold {
-        copy->Js.Dict.set(blockNumberKey, scannedBlock)
+        copy->Dict.set(blockNumberKey, scannedBlock)
       }
     }
 
@@ -157,14 +157,14 @@ module LastBlockScannedHashes: {
     switch maybeReorgDetected {
     | Some(reorgDetected) => Error(reorgDetected)
     | None => {
-        dataByBlockNumberCopyInThreshold->Js.Dict.set(
+        dataByBlockNumberCopyInThreshold->Dict.set(
           lastBlockScannedData.blockNumber->Int.toString,
           lastBlockScannedData,
         )
         switch firstBlockParentNumberAndHash {
         | None => ()
         | Some(firstBlockParentNumberAndHash) =>
-          dataByBlockNumberCopyInThreshold->Js.Dict.set(
+          dataByBlockNumberCopyInThreshold->Dict.set(
             firstBlockParentNumberAndHash.blockNumber->Int.toString,
             firstBlockParentNumberAndHash,
           )
@@ -183,14 +183,14 @@ module LastBlockScannedHashes: {
     ~blockNumbersAndHashes: array<blockDataWithTimestamp>,
     ~currentBlockHeight,
   ) => {
-    let verifiedDataByBlockNumber = Js.Dict.empty()
+    let verifiedDataByBlockNumber = Dict.make()
     blockNumbersAndHashes->Array.forEach(blockData => {
-      verifiedDataByBlockNumber->Js.Dict.set(blockData.blockNumber->Int.toString, blockData)
+      verifiedDataByBlockNumber->Dict.set(blockData.blockNumber->Int.toString, blockData)
     })
 
     let dataByBlockNumber = self->getDataByBlockNumberCopyInThreshold(~currentBlockHeight)
     // Js engine automatically orders numeric object keys
-    let ascBlockNumberKeys = dataByBlockNumber->Js.Dict.keys
+    let ascBlockNumberKeys = dataByBlockNumber->Dict.keysToArray
 
     let getPrevScannedBlock = idx =>
       ascBlockNumberKeys
@@ -203,10 +203,10 @@ module LastBlockScannedHashes: {
     let rec loop = idx => {
       switch ascBlockNumberKeys->Belt.Array.get(idx) {
       | Some(blockNumberKey) =>
-        let scannedBlock = dataByBlockNumber->Js.Dict.unsafeGet(blockNumberKey)
+        let scannedBlock = dataByBlockNumber->Dict.getUnsafe(blockNumberKey)
         switch verifiedDataByBlockNumber->Utils.Dict.dangerouslyGetNonOption(blockNumberKey) {
         | None =>
-          Js.Exn.raiseError(
+          JsError.throwWithMessage(
             `Unexpected case. Couldn't find verified hash for block number ${blockNumberKey}`,
           )
         | Some(verifiedBlockData) if verifiedBlockData.blockHash === scannedBlock.blockHash =>
@@ -228,17 +228,17 @@ module LastBlockScannedHashes: {
     ~blockNumber: int,
   ) => {
     // Js engine automatically orders numeric object keys
-    let ascBlockNumberKeys = dataByBlockNumber->Js.Dict.keys
+    let ascBlockNumberKeys = dataByBlockNumber->Dict.keysToArray
 
-    let newDataByBlockNumber = Js.Dict.empty()
+    let newDataByBlockNumber = Dict.make()
 
     let rec loop = idx => {
       switch ascBlockNumberKeys->Belt.Array.get(idx) {
       | Some(blockNumberKey) => {
-          let scannedBlock = dataByBlockNumber->Js.Dict.unsafeGet(blockNumberKey)
+          let scannedBlock = dataByBlockNumber->Dict.getUnsafe(blockNumberKey)
           let shouldKeep = scannedBlock.blockNumber <= blockNumber
           if shouldKeep {
-            newDataByBlockNumber->Js.Dict.set(blockNumberKey, scannedBlock)
+            newDataByBlockNumber->Dict.set(blockNumberKey, scannedBlock)
             loop(idx + 1)
           } else {
             ()
@@ -259,6 +259,6 @@ module LastBlockScannedHashes: {
     let dataByBlockNumberCopyInThreshold =
       self->getDataByBlockNumberCopyInThreshold(~currentBlockHeight)
 
-    dataByBlockNumberCopyInThreshold->Js.Dict.values->Js.Array2.map(v => v.blockNumber)
+    dataByBlockNumberCopyInThreshold->Dict.valuesToArray->Array.map(v => v.blockNumber)
   }
 }

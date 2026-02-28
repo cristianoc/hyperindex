@@ -1,0 +1,20 @@
+{
+  "name": "hyperindex-rescript-monorepo",
+  "namespace": false,
+  "reanalyze": {
+    "analysis": ["dce"],
+    "transitive": false
+  },
+  "sources": [
+    {
+      "dir": "src",
+      "subdirs": true
+    }
+  ],
+  "package-specs": {
+    "module": "commonjs",
+    "in-source": true
+  },
+  "suffix": ".bs.js",
+  "dependencies": ["envio", "helpers"]
+}

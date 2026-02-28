@@ -1,6 +1,6 @@
 type abi = EvmTypes.Abi.t
 
-let makeAbi = (abi: Js.Json.t): abi => abi->Utils.magic
+let makeAbi = (abi: JSON.t): abi => abi->Utils.magic
 
 @deprecated("Use Address.t instead. The type will be removed in v3")
 type ethAddress = Address.t
@@ -176,5 +176,5 @@ module JsonRpcProvider = {
   }
 
   @send
-  external getBlock: (t, int) => promise<Js.nullable<block>> = "getBlock"
+  external getBlock: (t, int) => promise<Nullable.t<block>> = "getBlock"
 }

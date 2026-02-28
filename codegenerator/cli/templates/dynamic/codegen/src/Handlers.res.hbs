@@ -1,9 +1,0 @@
-{{#each codegen_contracts as | contract |}}
-  @genType
-module {{contract.name.capitalized}} = {
-  {{#each contract.codegen_events as | event |}}  
-  module {{event.name}} = Types.MakeRegister(Types.{{contract.name.capitalized}}.{{event.name}})
-  {{/each}}  
-}
-
-{{/each}}  

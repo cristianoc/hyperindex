@@ -1,3 +1,0 @@
-open RescriptMocha
-
-open TestHelpers

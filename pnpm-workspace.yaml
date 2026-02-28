@@ -1,0 +1,3 @@
+packages:
+  - "codegenerator/cli/npm/envio"
+  - "scenarios/helpers"

@@ -15,6 +15,6 @@
   "gentypeconfig": {
     "generatedFileExtension": ".gen.ts"
   },
-  "bs-dependencies": ["rescript-schema"],
-  "bsc-flags": ["-open RescriptSchema"]
+  "dependencies": ["rescript-schema"],
+  "compiler-flags": ["-open RescriptSchema"]
 }

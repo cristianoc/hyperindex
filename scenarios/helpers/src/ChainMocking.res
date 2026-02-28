@@ -28,7 +28,7 @@ module Crypto = {
 
   let hashKeccak256String = hashKeccak256(~toString=int => int->Obj.magic, _)
   let hashKeccak256Int = hashKeccak256(~toString=int => int->Int.toString, _)
-  let anyToString = a => a->Js.Json.stringifyAny->Option.getExn
+  let anyToString = a => a->JSON.stringifyAny->Option.getOrThrow
   let hashKeccak256Any = hashKeccak256(~toString=anyToString, _)
   let hashKeccak256Compound = (previousHash, input) =>
     input->hashKeccak256(~toString=v => anyToString(v) ++ previousHash)
@@ -200,9 +200,9 @@ module Make = (Indexer: Indexer.S) => {
   }
 
   let getBlock = (self: t, ~blockNumber) =>
-    self.blocks->Js.Array2.find(b => b.blockNumber == blockNumber)
+    self.blocks->Array.find(b => b.blockNumber == blockNumber)
 
-  let arrayHas = (arr, v) => arr->Js.Array2.find(item => item == v)->Option.isSome
+  let arrayHas = (arr, v) => arr->Array.find(item => item == v)->Option.isSome
 
   type contractAddressesAndEventNames = {
     addresses: array<Address.t>,
@@ -246,7 +246,7 @@ module Make = (Indexer: Indexer.S) => {
     }
 
     let unfilteredBlocks = self->getBlocks(~fromBlock, ~toBlock)
-    let heighstBlock = unfilteredBlocks->getLast->Option.getExn
+    let heighstBlock = unfilteredBlocks->getLast->Option.getOrThrow
     let firstBlockParentNumberAndHash =
       self
       ->getBlock(~blockNumber=fromBlock - 1)

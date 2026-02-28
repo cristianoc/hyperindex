@@ -1,8 +1,8 @@
 external magic: 'a => 'b = "%identity"
 
 let delay = milliseconds =>
-  Js.Promise2.make((~resolve, ~reject as _) => {
-    let _interval = Js.Global.setTimeout(_ => {
+  Promise.make((resolve, _reject) => {
+    let _interval = setTimeout(_ => {
       resolve()
     }, milliseconds)
   })
@@ -46,7 +46,7 @@ module Option = {
 
   let getExn = (opt, message) => {
     switch opt {
-    | None => Js.Exn.raiseError(message)
+    | None => JsError.throwWithMessage(message)
     | Some(v) => v
     }
   }
@@ -67,34 +67,34 @@ module Dict = {
 
   let push = (dict, key, value) => {
     switch dict->dangerouslyGetNonOption(key) {
-    | Some(arr) => arr->Js.Array2.push(value)->ignore
-    | None => dict->Js.Dict.set(key, [value])
+    | Some(arr) => arr->Array.push(value)->ignore
+    | None => dict->Dict.set(key, [value])
     }
   }
 
   let pushMany = (dict, key, values) => {
     switch dict->dangerouslyGetNonOption(key) {
-    | Some(arr) => arr->Js.Array2.pushMany(values)->ignore
-    | None => dict->Js.Dict.set(key, values)
+    | Some(arr) => arr->Array.pushMany(values)->ignore
+    | None => dict->Dict.set(key, values)
     }
   }
 
   let merge: (dict<'a>, dict<'a>) => dict<'a> = %raw(`(dictA, dictB) => ({...dictA, ...dictB})`)
 
   let map = (dict, fn) => {
-    let newDict = Js.Dict.empty()
-    let keys = dict->Js.Dict.keys
-    for idx in 0 to keys->Js.Array2.length - 1 {
-      let key = keys->Js.Array2.unsafe_get(idx)
-      newDict->Js.Dict.set(key, fn(dict->Js.Dict.unsafeGet(key)))
+    let newDict = Dict.make()
+    let keys = dict->Dict.keysToArray
+    for idx in 0 to keys->Array.length - 1 {
+      let key = keys->Array.getUnsafe(idx)
+      newDict->Dict.set(key, fn(dict->Dict.getUnsafe(key)))
     }
     newDict
   }
 
   let forEach = (dict, fn) => {
-    let keys = dict->Js.Dict.keys
-    for idx in 0 to keys->Js.Array2.length - 1 {
-      fn(dict->Js.Dict.unsafeGet(keys->Js.Array2.unsafe_get(idx)))
+    let keys = dict->Dict.keysToArray
+    for idx in 0 to keys->Array.length - 1 {
+      fn(dict->Dict.getUnsafe(keys->Array.getUnsafe(idx)))
     }
   }
 
@@ -163,7 +163,7 @@ module Array = {
   */
   let setIndexImmutable = (arr: array<'a>, index: int, value: 'a): array<'a> => {
     let shallowCopy = arr->Belt.Array.copy
-    shallowCopy->Js.Array2.unsafe_set(index, value)
+    shallowCopy->Array.setUnsafe(index, value)
     shallowCopy
   }
 
@@ -172,7 +172,7 @@ module Array = {
       if index >= Array.length(results) {
         Ok(output)
       } else {
-        switch results->Js.Array2.unsafe_get(index) {
+        switch results->Array.getUnsafe(index) {
         | Ok(value) => {
             output[index] = value
             loop(index + 1, output)
@@ -182,14 +182,14 @@ module Array = {
       }
     }
 
-    loop(0, Belt.Array.makeUninitializedUnsafe(results->Js.Array2.length))
+    loop(0, Belt.Array.makeUninitializedUnsafe(results->Array.length))
   }
 
   /**
 Helper to check if a value exists in an array
 */
   let includes = (arr: array<'a>, val: 'a) =>
-    arr->Js.Array2.find(item => item == val)->Belt.Option.isSome
+    arr->Array.find(item => item == val)->Belt.Option.isSome
 
   let isEmpty = (arr: array<_>) =>
     switch arr {
@@ -213,10 +213,10 @@ Helper to check if a value exists in an array
     if index < 0 {
       array->Array.copy
     } else {
-      array
-      ->Js.Array2.slice(~start=0, ~end_=index)
-      ->Js.Array2.concat(array->Js.Array2.sliceFrom(index + 1))
-    }
+    array
+    ->Array.slice(~start=0, ~end=index)
+    ->Array.concat(array->Array.slice(~start=index + 1))
+  }
   }
 
   let last = (arr: array<'a>): option<'a> => arr->Belt.Array.get(arr->Array.length - 1)
@@ -251,10 +251,10 @@ Helper to check if a value exists in an array
   */
   let interleave = (arr: array<'a>, separator: 'a) => {
     let interleaved = []
-    arr->Js.Array2.forEachi((v, i) => {
-      interleaved->Js.Array2.push(v)->ignore
+    arr->Array.forEachWithIndex((v, i) => {
+      interleaved->Array.push(v)->ignore
       if i < arr->Array.length - 1 {
-        interleaved->Js.Array2.push(separator)->ignore
+        interleaved->Array.push(separator)->ignore
       }
     })
     interleaved
@@ -266,8 +266,8 @@ Helper to check if a value exists in an array
 
 module String = {
   let capitalize = str => {
-    str->Js.String2.slice(~from=0, ~to_=1)->Js.String.toUpperCase ++
-      str->Js.String2.sliceToEnd(~from=1)
+    str->String.slice(~start=0, ~end=1)->String.toUpperCase ++
+      str->String.slice(~start=1)
   }
 }
 
@@ -300,13 +300,13 @@ module Schema = {
     let acc = []
     switch schema->S.classify {
     | Object({items}) =>
-      items->Js.Array2.forEach(item => {
+      items->Belt.Array.forEach(item => {
         switch item.schema->S.classify {
         // Check for null, since we generate S.null schema for db serializing
         // In the future it should be changed to Option only
         | Null(_) => ()
         | Option(_) => ()
-        | _ => acc->Js.Array2.push(item.location)->ignore
+        | _ => acc->Belt.Array.push(item.location)
         }
       })
     | _ => ()
@@ -316,7 +316,7 @@ module Schema = {
 
   let getCapitalizedFieldNames = schema => {
     switch schema->S.classify {
-    | Object({items}) => items->Js.Array2.map(item => item.location->String.capitalize)
+    | Object({items}) => items->Belt.Array.map(item => item.location->String.capitalize)
     | _ => []
     }
   }
@@ -326,7 +326,7 @@ module Schema = {
     ->S.setName("BigInt")
     ->S.transform(s => {
       parser: string =>
-        try string->BigInt.fromString catch {
+        try %raw("BigInt(string)") catch {
         | _ => s.fail("The string is not valid BigInt")
         },
       serializer: bigint => bigint->BigInt.toString,
@@ -336,8 +336,8 @@ module Schema = {
   // In a nutshell, this is completely unsafe.
   let dbDate =
     S.json(~validate=false)
-    ->(magic: S.t<Js.Json.t> => S.t<Js.Date.t>)
-    ->S.preprocess(_ => {serializer: date => date->magic->Js.Date.toISOString})
+    ->(magic: S.t<JSON.t> => S.t<Date.t>)
+    ->S.preprocess(_ => {serializer: date => date->magic->Date.toISOString})
 
   // When trying to serialize data to Json pg type, it will fail with
   // PostgresError: column "params" is of type json but expression is of type boolean
@@ -389,7 +389,7 @@ module Set = {
   @send
   external add: (t<'value>, 'value) => t<'value> = "add"
 
-  let addMany = (set, values) => values->Js.Array2.forEach(value => set->add(value)->ignore)
+  let addMany = (set, values) => values->Belt.Array.forEach(value => set->add(value)->ignore)
 
   @ocaml.doc("Removes all elements from the `Set` object.") @send
   external clear: t<'value> => unit = "clear"
@@ -442,7 +442,7 @@ external entries: t<'value> => Js_iterator.t<('value, 'value)> = "entries"
 }
 
 module WeakMap = {
-  type t<'k, 'v> = Js.WeakMap.t<'k, 'v>
+  type t<'k, 'v> = WeakMap.t<'k, 'v>
 
   @new external make: unit => t<'k, 'v> = "WeakMap"
 
@@ -453,7 +453,7 @@ module WeakMap = {
 }
 
 module Map = {
-  type t<'k, 'v> = Js.Map.t<'k, 'v>
+  type t<'k, 'v> = Map.t<'k, 'v>
 
   @new external make: unit => t<'k, 'v> = "Map"
 
@@ -467,7 +467,7 @@ module Map = {
 module BigInt = {
   let fromString = str => {
     try {
-      str->BigInt.fromString->Some
+      Some(%raw("BigInt(str)"))
     } catch {
     | _ => None
     }
