@@ -1,16 +1,3 @@
-exception MissingRequiredTopic0
-let makeTopicSelection = (~topic0, ~topic1=[], ~topic2=[], ~topic3=[]) =>
-  if topic0->Utils.Array.isEmpty {
-    Error(MissingRequiredTopic0)
-  } else {
-    {
-      Internal.topic0,
-      topic1,
-      topic2,
-      topic3,
-    }->Ok
-  }
-
 let hasFilters = ({topic1, topic2, topic3}: Internal.topicSelection) => {
   [topic1, topic2, topic3]->Array.find(topic => !Utils.Array.isEmpty(topic))->Belt.Option.isSome
 }
@@ -47,133 +34,13 @@ let compressTopicSelections = (topicSelections: array<Internal.topicSelection>) 
   }
 }
 
-type t = {
-  addresses: array<Address.t>,
-  topicSelections: array<Internal.topicSelection>,
-}
+type t
+
+@obj external makeSelection: (~addresses: array<Address.t>, ~topicSelections: array<Internal.topicSelection>) => t = ""
 
 let make = (~addresses, ~topicSelections) => {
   let topicSelections = compressTopicSelections(topicSelections)
-  {addresses, topicSelections}
+  makeSelection(~addresses, ~topicSelections)
 }
 
-type parsedEventFilters = {
-  getEventFiltersOrThrow: ChainMap.Chain.t => Internal.eventFilters,
-  dependsOnAddresses: bool,
-}
-
-let parseEventFiltersOrThrow = {
-  let emptyTopics = []
-  let noopGetter = _ => emptyTopics
-
-  (
-    ~eventFilters: option<JSON.t>,
-    ~sighash,
-    ~params,
-    ~topic1=noopGetter,
-    ~topic2=noopGetter,
-    ~topic3=noopGetter,
-  ): parsedEventFilters => {
-    let dependsOnAddresses = ref(false)
-    let topic0 = [sighash->EvmTypes.Hex.fromStringUnsafe]
-    let default = {
-      Internal.topic0,
-      topic1: emptyTopics,
-      topic2: emptyTopics,
-      topic3: emptyTopics,
-    }
-
-    let parse = (eventFilters: JSON.t): array<Internal.topicSelection> => {
-      switch eventFilters {
-      | Array([]) => [%raw(`{}`)]
-      | Array(a) => a
-      | _ => [eventFilters]
-      }->Array.map(eventFilter => {
-        switch eventFilter {
-        | Object(eventFilter) => {
-            let filterKeys = eventFilter->Dict.keysToArray
-            switch filterKeys {
-            | [] => default
-            | _ => {
-                filterKeys->Array.forEach(key => {
-                  if params->Array.includes(key)->not {
-                    // In TS type validation doesn't catch this
-                    // when we have eventFilters as a callback
-                    JsError.throwWithMessage(
-                      `Invalid event filters configuration. The event doesn't have an indexed parameter "${key}" and can't use it for filtering`,
-                    )
-                  }
-                })
-                {
-                  Internal.topic0,
-                  topic1: topic1(eventFilter),
-                  topic2: topic2(eventFilter),
-                  topic3: topic3(eventFilter),
-                }
-              }
-            }
-          }
-        | _ => JsError.throwWithMessage("Invalid event filters configuration. Expected an object")
-        }
-      })
-    }
-
-    let getEventFiltersOrThrow = switch eventFilters {
-    | None => {
-        let static: Internal.eventFilters = Static([default])
-        _ => static
-      }
-    | Some(eventFilters) =>
-    if typeof(eventFilters) === #function {
-        let fn = eventFilters->(Utils.magic: JSON.t => Internal.eventFiltersArgs => JSON.t)
-        // When user passess a function to event filters we need to
-        // first determine whether it uses addresses or not
-        // Because the fetching logic will be different for wildcard events
-        // 1. If wildcard event doesn't use addresses,
-        //    it should start fetching even without static addresses in the config
-        // 2. If wildcard event uses addresses in event filters,
-        //    it should first wait for dynamic contract registration
-        // So to deterimine which case we run the function with dummy args
-        // and check if it uses addresses by using the getter.
-        try {
-          let args = (
-            {
-              chainId: 0,
-              addresses: [],
-            }: Internal.eventFiltersArgs
-          )->Utils.Object.defineProperty(
-            "addresses",
-            {
-              get: () => {
-                dependsOnAddresses := true
-                []
-              },
-            },
-          )
-          let _ = fn(args)
-        } catch {
-        | _ => ()
-        }
-        if dependsOnAddresses.contents {
-          chain => Internal.Dynamic(
-            addresses => fn({chainId: chain->ChainMap.Chain.toChainId, addresses})->parse,
-          )
-        } else {
-          // When we don't depend on addresses, can mark the event filter
-          // as static and avoid recalculating on every batch
-          chain => Internal.Static(
-            fn({chainId: chain->ChainMap.Chain.toChainId, addresses: []})->parse,
-          )
-        }
-      } else {
-        let static: Internal.eventFilters = Static(eventFilters->parse)
-        _ => static
-      }
-    }
-
-    {
-      getEventFiltersOrThrow,
-      dependsOnAddresses: dependsOnAddresses.contents,
-    }
-  }
-}
+type parsedEventFilters

@@ -3,84 +3,46 @@ type derived
 @unboxed
 type fieldType =
   | @as("INTEGER") Integer
-  | @as("BOOLEAN") Boolean
-  | @as("NUMERIC") Numeric
-  | @as("DOUBLE PRECISION") DoublePrecision
   | @as("TEXT") Text
   | @as("SERIAL") Serial
-  | @as("JSONB") JsonB
-  | @as("TIMESTAMP WITH TIME ZONE") Timestamp
-  | @as("TIMESTAMP") TimestampWithoutTimezone
-  | @as("TIMESTAMP WITH TIME ZONE NULL") TimestampWithNullTimezone
   | Custom(string)
 
 type field = {
   fieldName: string,
   fieldType: fieldType,
-  isArray: bool,
-  isNullable: bool,
   isPrimaryKey: bool,
   isIndex: bool,
   linkedEntity: option<string>,
-  defaultValue: option<string>,
 }
 
 type derivedFromField = {
-  fieldName: string,
   derivedFromEntity: string,
   derivedFromField: string,
 }
-
-type fieldOrDerived = Field(field) | DerivedFrom(derivedFromField)
+type fieldOrDerived = field
 
 let mkField = (
-  ~default=?,
-  ~isArray=false,
-  ~isNullable=false,
   ~isPrimaryKey=false,
   ~isIndex=false,
-  ~linkedEntity=?,
   fieldName,
   fieldType,
 ) =>
   {
     fieldName,
     fieldType,
-    isArray,
-    isNullable,
     isPrimaryKey,
     isIndex,
-    linkedEntity,
-    defaultValue: default,
-  }->Field
-
-let mkDerivedFromField = (fieldName, ~derivedFromEntity, ~derivedFromField) =>
-  {
-    fieldName,
-    derivedFromField,
-    derivedFromEntity,
-  }->DerivedFrom
-
-let getUserDefinedFieldName = fieldOrDerived =>
-  switch fieldOrDerived {
-  | Field({fieldName})
-  | DerivedFrom({fieldName}) => fieldName
+    linkedEntity: None,
   }
+
+let getUserDefinedFieldName = (field: fieldOrDerived) => field.fieldName
 
 let isLinkedEntityField = field => field.linkedEntity->Option.isSome
 
 let getDbFieldName = field =>
   field->isLinkedEntityField ? field.fieldName ++ "_id" : field.fieldName
 
-let getFieldName = fieldOrDerived =>
-  switch fieldOrDerived {
-  | Field(field) => field->getDbFieldName
-  | DerivedFrom({fieldName}) => fieldName
-  }
-
-let getFieldType = (field: field) => {
-  (field.fieldType :> string) ++ (field.isArray ? "[]" : "")
-}
+let getFieldName = (field: fieldOrDerived) => field->getDbFieldName
 
 type table = {
   tableName: string,
@@ -89,73 +51,35 @@ type table = {
   compositeIndices: array<array<string>>,
 }
 
-let mkTable = (tableName, ~schemaName, ~compositeIndices=[], ~fields) => {
+let mkTable = (tableName, ~schemaName, ~fields) => {
   tableName,
   schemaName,
   fields,
-  compositeIndices,
+  compositeIndices: [],
 }
 
 let getPrimaryKeyFieldNames = table =>
   table.fields->Array.filterMap(field =>
-    switch field {
-    | Field({isPrimaryKey: true, fieldName}) => Some(fieldName)
-    | _ => None
-    }
+    field.isPrimaryKey ? Some(field.fieldName) : None
   )
 
-let getFields = table =>
-  table.fields->Array.filterMap(field =>
-    switch field {
-    | Field(field) => Some(field)
-    | DerivedFrom(_) => None
-    }
-  )
-
-let getFieldNames = table => {
-  table->getFields->Array.map(getDbFieldName)
-}
-
-let getNonDefaultFields = table =>
-  table.fields->Array.filterMap(field =>
-    switch field {
-    | Field(field) if field.defaultValue->Option.isNone => Some(field)
-    | _ => None
-    }
-  )
+let getFields = table => table.fields
 
 let getLinkedEntityFields = table =>
   table.fields->Array.filterMap(field =>
-    switch field {
-    | Field({linkedEntity: Some(linkedEntityName)} as field) => Some((field, linkedEntityName))
-    | Field({linkedEntity: None})
-    | DerivedFrom(_) =>
-      None
+    switch field.linkedEntity {
+    | Some(linkedEntityName) => Some((field, linkedEntityName))
+    | None => None
     }
   )
 
-let getDerivedFromFields = table =>
-  table.fields->Array.filterMap(field =>
-    switch field {
-    | DerivedFrom(field) => Some(field)
-    | Field(_) => None
-    }
-  )
-
-let getNonDefaultFieldNames = table => {
-  table->getNonDefaultFields->Array.map(getDbFieldName)
-}
+let getDerivedFromFields = _table => []
 
 let getFieldByName = (table, fieldName) =>
   table.fields->Array.find(field => field->getUserDefinedFieldName === fieldName)
 
 let getFieldByDbName = (table, dbFieldName) =>
-  table.fields->Array.find(field =>
-    switch field {
-    | Field(f) => f->getDbFieldName
-    | DerivedFrom({fieldName}) => fieldName
-    } === dbFieldName
-  )
+  table.fields->Array.find(field => field->getDbFieldName === dbFieldName)
 
 exception NonExistingTableField(string)
 
@@ -174,13 +98,16 @@ let getUnfilteredCompositeIndicesUnsafe = (table): array<array<string>> => {
   )
 }
 
-type sqlParams<'entity> = {
-  dbSchema: S.t<'entity>,
-  quotedFieldNames: array<string>,
-  quotedNonPrimaryFieldNames: array<string>,
-  arrayFieldTypes: array<string>,
-  hasArrayField: bool,
-}
+type sqlParams<'entity>
+
+@obj
+external makeSqlParams: (
+  ~dbSchema: S.t<'entity>,
+  ~quotedFieldNames: array<string>,
+  ~quotedNonPrimaryFieldNames: array<string>,
+  ~arrayFieldTypes: array<string>,
+  ~hasArrayField: bool,
+) => sqlParams<'entity> = ""
 
 let toSqlParams = (table: table, ~schema) => {
   let quotedFieldNames = []
@@ -225,7 +152,7 @@ let toSqlParams = (table: table, ~schema) => {
         ->Array.push(inlinedLocation)
         ->ignore
         switch field {
-        | Field({isPrimaryKey: false}) =>
+        | {isPrimaryKey: false} =>
           quotedNonPrimaryFieldNames
           ->Array.push(inlinedLocation)
           ->ignore
@@ -235,13 +162,11 @@ let toSqlParams = (table: table, ~schema) => {
         arrayFieldTypes
         ->Array.push(
           switch field {
-          | Field(f) =>
+          | f =>
             switch f.fieldType {
             | Custom(fieldType) => `${(Text :> string)}[]::${(fieldType :> string)}`
-            | Boolean => `${(Integer :> string)}[]::${(f.fieldType :> string)}`
             | fieldType => (fieldType :> string)
             }
-          | DerivedFrom(_) => (Text :> string)
           } ++ "[]",
         )
         ->ignore
@@ -252,13 +177,13 @@ let toSqlParams = (table: table, ~schema) => {
     }
   )
 
-  {
-    dbSchema: dbSchema->(Utils.magic: S.t<dict<unknown>> => S.t<'entity>),
-    quotedFieldNames,
-    quotedNonPrimaryFieldNames,
-    arrayFieldTypes,
-    hasArrayField: hasArrayField.contents,
-  }
+  makeSqlParams(
+    ~dbSchema=dbSchema->(Utils.magic: S.t<dict<unknown>> => S.t<'entity>),
+    ~quotedFieldNames,
+    ~quotedNonPrimaryFieldNames,
+    ~arrayFieldTypes,
+    ~hasArrayField=hasArrayField.contents,
+  )
 }
 
 /*
@@ -267,10 +192,7 @@ And maps the fields defined to their actual db name (some have _id suffix)
 */
 let getSingleIndices = (table): array<string> => {
   let indexFields = table.fields->Array.filterMap(field =>
-    switch field {
-    | Field(field) if field.isIndex => Some(field->getDbFieldName)
-    | _ => None
-    }
+    field.isIndex ? Some(field->getDbFieldName) : None
   )
 
   table
@@ -308,53 +230,4 @@ module PostgresInterop = {
   type batchSetFn<'a> = (Postgres.sql, array<'a>) => promise<unit>
   external eval: string => 'a = "eval"
 
-  let makeBatchSetFnString = (table: table) => {
-    let fieldNamesInQuotes =
-      table->getNonDefaultFieldNames->Array.map(fieldName => `"${fieldName}"`)
-    `(sql, rows) => {
-      return sql\`
-        INSERT INTO "${table.schemaName}"."${table.tableName}"
-        \${sql(rows, ${fieldNamesInQuotes->Array.join(", ")})}
-        ON CONFLICT(${table->getPrimaryKeyFieldNames->Array.join(", ")}) DO UPDATE
-        SET
-        ${fieldNamesInQuotes
-      ->Array.map(fieldNameInQuotes => `${fieldNameInQuotes} = EXCLUDED.${fieldNameInQuotes}`)
-      ->Array.join(", ")};\`
-    }`
-  }
-
-  let chunkBatchQuery = (
-    sql,
-    entityDataArray: array<'entity>,
-    queryToExecute: pgFn<array<'entity>, 'return>,
-    ~maxItemsPerQuery=500,
-  ): promise<array<'return>> => {
-    let responses = []
-    let i = ref(0)
-    let shouldContinue = () => i.contents < entityDataArray->Array.length
-    // Split entityDataArray into chunks of maxItemsPerQuery
-    while shouldContinue() {
-      let chunk =
-        entityDataArray->Array.slice(~start=i.contents, ~end=i.contents + maxItemsPerQuery)
-      let response = queryToExecute(sql, chunk)
-      responses->Array.push(response)->ignore
-      i := i.contents + maxItemsPerQuery
-    }
-    Promise.all(responses)
-  }
-
-  let makeBatchSetFn = (~table, ~schema: S.t<'a>): batchSetFn<'a> => {
-    let batchSetFn: pgFn<array<JSON.t>, unit> = table->makeBatchSetFnString->eval
-    let parseOrThrow = S.compile(
-      S.array(schema),
-      ~input=Value,
-      ~output=Json,
-      ~mode=Sync,
-      ~typeValidation=true,
-    )
-    async (sql, rows) => {
-      let rowsJson = rows->parseOrThrow->(Utils.magic: JSON.t => array<JSON.t>)
-      let _res = await chunkBatchQuery(sql, rowsJson, batchSetFn)
-    }
-  }
 }

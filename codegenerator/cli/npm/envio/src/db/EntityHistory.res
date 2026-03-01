@@ -17,7 +17,6 @@ type historyFieldsGeneral<'a> = {
 type historyFields = historyFieldsGeneral<int>
 
 type entityIdOnly = {id: string}
-let entityIdOnlySchema = S.schema(s => {id: s.matches(S.string)})
 type entityData<'entity> = Delete(entityIdOnly) | Set('entity)
 
 type historyRow<'entity> = {
@@ -131,8 +130,6 @@ let makeHistoryRowSchema: S.t<'entity> => S.t<historyRow<'entity>> = entitySchem
 }
 
 type t<'entity> = {
-  table: table,
-  createInsertFnQuery: string,
   schema: S.t<historyRow<'entity>>,
   schemaRows: S.t<array<historyRow<'entity>>>,
   insertFn: (Postgres.sql, JSON.t, ~shouldCopyCurrentEntity: bool) => promise<unit>,
@@ -194,31 +191,24 @@ let fromTable = (table: table, ~schema: S.t<'entity>): t<'entity> => {
 
   let previousHistoryFields =
     previousChangeFieldNames->Belt.Array.map(fieldName =>
-      mkField(fieldName, Integer, ~isNullable=true)
+      mkField(fieldName, Integer)
     )
 
   let id = "id"
 
   let dataFields = table.fields->Belt.Array.keepMap(field =>
-    switch field {
-    | Field(field) =>
-      switch field.fieldName {
-      //id is not nullable and should be part of the pk
-      | "id" => {...field, fieldName: id, isPrimaryKey: true}->Field->Some
-      //db_write_timestamp can be removed for this. TODO: remove this when we depracate
-      //automatic db_write_timestamp creation
-      | "db_write_timestamp" => None
-      | _ =>
-        {
-          ...field,
-          isNullable: true, //All entity fields are nullable in the case
-          isIndex: false, //No need to index any additional entity data fields in entity history
-        }
-        ->Field
-        ->Some
+    switch field.fieldName {
+    //id should be part of the pk
+    | "id" => {...field, fieldName: id, isPrimaryKey: true}->Some
+    //db_write_timestamp can be removed for this. TODO: remove this when we depracate
+    //automatic db_write_timestamp creation
+    | "db_write_timestamp" => None
+    | _ =>
+      {
+        ...field,
+        isIndex: false, //No need to index any additional entity data fields in entity history
       }
-
-    | DerivedFrom(_) => None
+      ->Some
     }
   )
 
@@ -226,7 +216,7 @@ let fromTable = (table: table, ~schema: S.t<'entity>): t<'entity> => {
 
   let actionField = mkField(actionFieldName, Custom(RowAction.enum.name))
 
-  let serialField = mkField("serial", Serial, ~isNullable=true, ~isIndex=true)
+  let serialField = mkField("serial", Serial, ~isIndex=true)
 
   let dataFieldNames = dataFields->Belt.Array.map(field => field->getFieldName)
 
@@ -246,20 +236,6 @@ let fromTable = (table: table, ~schema: S.t<'entity>): t<'entity> => {
   )
 
   let insertFnName = `"insert_${table.tableName}"`
-  let historyRowArg = "history_row"
-  let historyTablePath = `"${originSchemaName}"."${historyTableName}"`
-  let originTablePath = `"${originSchemaName}"."${originTableName}"`
-
-  let previousHistoryFieldsAreNullStr =
-    previousChangeFieldNames
-    ->Belt.Array.map(fieldName => `${historyRowArg}.${fieldName} IS NULL`)
-    ->Array.join(" OR ")
-
-  let currentChangeFieldNamesCommaSeparated = currentChangeFieldNames->Array.join(", ")
-
-  let dataFieldNamesDoubleQuoted = dataFieldNames->Belt.Array.map(fieldName => `"${fieldName}"`)
-  let dataFieldNamesCommaSeparated = dataFieldNamesDoubleQuoted->Array.join(", ")
-
   let allFieldNamesDoubleQuoted =
     Belt.Array.concatMany([
       currentChangeFieldNames,
@@ -267,62 +243,6 @@ let fromTable = (table: table, ~schema: S.t<'entity>): t<'entity> => {
       dataFieldNames,
       [actionFieldName],
     ])->Belt.Array.map(fieldName => `"${fieldName}"`)
-
-  let createInsertFnQuery = {
-    `CREATE OR REPLACE FUNCTION ${insertFnName}(${historyRowArg} ${historyTablePath}, should_copy_current_entity BOOLEAN)
-      RETURNS void AS $$
-      DECLARE
-        v_previous_record RECORD;
-        v_origin_record RECORD;
-      BEGIN
-        -- Check if previous values are not provided
-        IF ${previousHistoryFieldsAreNullStr} THEN
-          -- Find the most recent record for the same id
-          SELECT ${currentChangeFieldNamesCommaSeparated} INTO v_previous_record
-          FROM ${historyTablePath}
-          WHERE ${id} = ${historyRowArg}.${id}
-          ORDER BY ${currentChangeFieldNames
-      ->Belt.Array.map(fieldName => fieldName ++ " DESC")
-      ->Array.join(", ")}
-          LIMIT 1;
-
-          -- If a previous record exists, use its values
-          IF FOUND THEN
-            ${Belt.Array.zip(currentChangeFieldNames, previousChangeFieldNames)
-      ->Belt.Array.map(((currentFieldName, previousFieldName)) => {
-        `${historyRowArg}.${previousFieldName} := v_previous_record.${currentFieldName};`
-      })
-      ->Array.join(" ")}
-            ElSIF should_copy_current_entity THEN
-            -- Check if a value for the id exists in the origin table and if so, insert a history row for it.
-            SELECT ${dataFieldNamesCommaSeparated} FROM ${originTablePath} WHERE id = ${historyRowArg}.${id} INTO v_origin_record;
-            IF FOUND THEN
-              INSERT INTO ${historyTablePath} (${currentChangeFieldNamesCommaSeparated}, ${dataFieldNamesCommaSeparated}, "${actionFieldName}")
-              -- SET the current change data fields to 0 since we don't know what they were
-              -- and it doesn't matter provided they are less than any new values
-              VALUES (${currentChangeFieldNames
-      ->Belt.Array.map(_ => "0")
-      ->Array.join(", ")}, ${dataFieldNames
-      ->Belt.Array.map(fieldName => `v_origin_record."${fieldName}"`)
-      ->Array.join(", ")}, 'SET');
-
-              ${previousChangeFieldNames
-      ->Belt.Array.map(previousFieldName => {
-        `${historyRowArg}.${previousFieldName} := 0;`
-      })
-      ->Array.join(" ")}
-            END IF;
-          END IF;
-        END IF;
-
-        INSERT INTO ${historyTablePath} (${allFieldNamesDoubleQuoted->Array.join(", ")})
-        VALUES (${allFieldNamesDoubleQuoted
-      ->Belt.Array.map(fieldName => `${historyRowArg}.${fieldName}`)
-      ->Array.join(", ")});
-      END;
-      $$ LANGUAGE plpgsql;
-      `
-  }
 
   let insertFnString = `(sql, rowArgs, shouldCopyCurrentEntity) =>
       sql\`select ${insertFnName}(ROW(${allFieldNamesDoubleQuoted
@@ -335,5 +255,5 @@ let fromTable = (table: table, ~schema: S.t<'entity>): t<'entity> => {
 
   let schema = makeHistoryRowSchema(schema)
 
-  {table, createInsertFnQuery, schema, schemaRows: S.array(schema), insertFn}
+  {schema, schemaRows: S.array(schema), insertFn}
 }

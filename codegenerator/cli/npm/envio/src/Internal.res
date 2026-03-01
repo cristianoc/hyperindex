@@ -5,14 +5,7 @@ type eventBlock
 type eventTransaction
 
 @genType
-type genericEvent<'params, 'block, 'transaction> = {
-  params: 'params,
-  chainId: int,
-  srcAddress: Address.t,
-  logIndex: int,
-  transaction: 'transaction,
-  block: 'block,
-}
+type genericEvent<'params, 'block, 'transaction>
 
 type event = genericEvent<eventParams, eventBlock, eventTransaction>
 
@@ -21,10 +14,7 @@ external fromGenericEvent: genericEvent<'a, 'b, 'c> => event = "%identity"
 type loaderReturn
 
 @genType
-type genericLoaderArgs<'event, 'context> = {
-  event: 'event,
-  context: 'context,
-}
+type genericLoaderArgs<'event, 'context>
 @genType
 type genericLoader<'args, 'loaderReturn> = 'args => promise<'loaderReturn>
 
@@ -33,10 +23,7 @@ type loaderArgs = genericLoaderArgs<event, loaderContext>
 type loader = genericLoader<loaderArgs, loaderReturn>
 
 @genType
-type genericContractRegisterArgs<'event, 'context> = {
-  event: 'event,
-  context: 'context,
-}
+type genericContractRegisterArgs<'event, 'context>
 @genType
 type genericContractRegister<'args> = 'args => unit
 
@@ -45,11 +32,7 @@ type contractRegisterArgs = genericContractRegisterArgs<event, contractRegisterC
 type contractRegister = genericContractRegister<contractRegisterArgs>
 
 @genType
-type genericHandlerArgs<'event, 'context, 'loaderReturn> = {
-  event: 'event,
-  context: 'context,
-  loaderReturn: 'loaderReturn,
-}
+type genericHandlerArgs<'event, 'context, 'loaderReturn>
 @genType
 type genericHandler<'args> = 'args => promise<unit>
 
@@ -58,47 +41,17 @@ type handlerArgs = genericHandlerArgs<event, handlerContext, loaderReturn>
 type handler = genericHandler<handlerArgs>
 
 @genType
-type genericHandlerWithLoader<'loader, 'handler, 'eventFilters> = {
-  loader: 'loader,
-  handler: 'handler,
-  wildcard?: bool,
-  eventFilters?: 'eventFilters,
-  preRegisterDynamicContracts?: bool,
-}
+type genericHandlerWithLoader<'loader, 'handler, 'eventFilters>
 
 // This is private so it's not manually constructed internally
 // The idea is that it can only be coerced from fuel/evmEventConfig
 // and it can include their fields. We prevent manual creation,
 // so the fields are not overwritten and we can safely cast the type back to fuel/evmEventConfig
-type eventConfig = private {
-  id: string,
-  name: string,
-  contractName: string,
-  isWildcard: bool,
-  // Usually always false for wildcard events
-  // But might be true for wildcard event with dynamic event filter by addresses
-  dependsOnAddresses: bool,
-  preRegisterDynamicContracts: bool,
-  loader: option<loader>,
-  handler: option<handler>,
-  contractRegister: option<contractRegister>,
-  paramsRawEventSchema: S.schema<eventParams>,
-}
+type eventConfig
 
-type fuelEventKind =
-  | LogData({logId: string, decode: string => eventParams})
-  | Mint
-  | Burn
-  | Transfer
-  | Call
-type fuelEventConfig = {
-  ...eventConfig,
-  kind: fuelEventKind,
-}
-type fuelContractConfig = {
-  name: string,
-  events: array<fuelEventConfig>,
-}
+type fuelEventKind
+type fuelEventConfig
+type fuelContractConfig
 
 type topicSelection = {
   topic0: array<EvmTypes.Hex.t>,
@@ -107,59 +60,21 @@ type topicSelection = {
   topic3: array<EvmTypes.Hex.t>,
 }
 
-type eventFiltersArgs = {chainId: int, addresses: array<Address.t>}
+type eventFiltersArgs
 
-type eventFilters =
-  Static(array<topicSelection>) | Dynamic(array<Address.t> => array<topicSelection>)
+type eventFilters
 
-type evmEventConfig = {
-  ...eventConfig,
-  getEventFiltersOrThrow: ChainMap.Chain.t => eventFilters,
-  blockSchema: S.schema<eventBlock>,
-  transactionSchema: S.schema<eventTransaction>,
-  convertHyperSyncEventArgs: HyperSyncClient.Decoder.decodedEvent => eventParams,
-}
-type evmContractConfig = {
-  name: string,
-  abi: EvmTypes.Abi.t,
-  events: array<evmEventConfig>,
-}
+type evmEventConfig
+type evmContractConfig
 
-type eventItem = {
-  eventConfig: eventConfig,
-  timestamp: int,
-  chain: ChainMap.Chain.t,
-  blockNumber: int,
-  logIndex: int,
-  event: event,
-  //Default to false, if an event needs to
-  //be reprocessed after it has loaded dynamic contracts
-  //This gets set to true and does not try and reload events
-  hasRegisteredDynamicContracts?: bool,
-}
+type eventItem
 
 @genType
-type fuelSupplyParams = {
-  subId: string,
-  amount: bigint,
-}
-let fuelSupplyParamsSchema = S.schema(s => {
-  subId: s.matches(S.string),
-  amount: s.matches(Utils.Schema.dbBigint),
-})
+type fuelSupplyParams
 @genType
-type fuelTransferParams = {
-  to: Address.t,
-  assetId: string,
-  amount: bigint,
-}
-let fuelTransferParamsSchema = S.schema(s => {
-  to: s.matches(Address.schema),
-  assetId: s.matches(S.string),
-  amount: s.matches(Utils.Schema.dbBigint),
-})
+type fuelTransferParams
 
-type entity = private {id: string}
+type entity
 
 @genType.import(("./bindings/OpaqueTypes.ts", "invalid"))
 type noEventFilters

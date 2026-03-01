@@ -2,60 +2,21 @@ external magic: 'a => 'b = "%identity"
 
 let delay = milliseconds =>
   Promise.make((resolve, _reject) => {
-    let _interval = setTimeout(_ => {
+    ignore(setTimeout(_ => {
       resolve()
-    }, milliseconds)
+    }, milliseconds))
   })
 
 module Object = {
-  // Define a type for the property descriptor
-  type propertyDescriptor<'a> = {
-    configurable?: bool,
-    enumerable?: bool,
-    writable?: bool,
-    value?: 'a,
-    get?: unit => 'a,
-    set?: 'a => unit,
-  }
+  type propertyDescriptor<'a>
 
   @val @scope("Object")
   external defineProperty: ('obj, string, propertyDescriptor<'a>) => 'obj = "defineProperty"
 }
 
-module Option = {
-  let mapNone = (opt: option<'a>, val: 'b): option<'b> => {
-    switch opt {
-    | None => Some(val)
-    | Some(_) => None
-    }
-  }
-
-  let catchToNone: (unit => 'a) => option<'a> = unsafeFunc => {
-    try {
-      unsafeFunc()->Some
-    } catch {
-    | _ => None
-    }
-  }
-
-  let flatten = opt =>
-    switch opt {
-    | None => None
-    | Some(opt) => opt
-    }
-
-  let getExn = (opt, message) => {
-    switch opt {
-    | None => JsError.throwWithMessage(message)
-    | Some(v) => v
-    }
-  }
-}
+module Option = {}
 
 module Tuple = {
-  /**Access a tuple value by its index*/
-  @warning("-27")
-  let get = (tuple: 'a, index: int): option<'b> => %raw(`tuple[index]`)
 }
 
 module Dict = {
@@ -65,177 +26,19 @@ module Dict = {
    */
   external dangerouslyGetNonOption: (dict<'a>, string) => option<'a> = ""
 
-  let push = (dict, key, value) => {
-    switch dict->dangerouslyGetNonOption(key) {
-    | Some(arr) => arr->Array.push(value)->ignore
-    | None => dict->Dict.set(key, [value])
-    }
-  }
-
-  let pushMany = (dict, key, values) => {
-    switch dict->dangerouslyGetNonOption(key) {
-    | Some(arr) => arr->Array.pushMany(values)->ignore
-    | None => dict->Dict.set(key, values)
-    }
-  }
-
-  let merge: (dict<'a>, dict<'a>) => dict<'a> = %raw(`(dictA, dictB) => ({...dictA, ...dictB})`)
-
-  let map = (dict, fn) => {
-    let newDict = Dict.make()
-    let keys = dict->Dict.keysToArray
-    for idx in 0 to keys->Array.length - 1 {
-      let key = keys->Array.getUnsafe(idx)
-      newDict->Dict.set(key, fn(dict->Dict.getUnsafe(key)))
-    }
-    newDict
-  }
-
-  let forEach = (dict, fn) => {
-    let keys = dict->Dict.keysToArray
-    for idx in 0 to keys->Array.length - 1 {
-      fn(dict->Dict.getUnsafe(keys->Array.getUnsafe(idx)))
-    }
-  }
-
-  let deleteInPlace: (dict<'a>, string) => unit = %raw(`(dict, key) => {
-      delete dict[key];
-    }
-  `)
-
-  let updateImmutable: (
-    dict<'a>,
-    string,
-    'a,
-  ) => dict<'a> = %raw(`(dict, key, value) => ({...dict, [key]: value})`)
-
-  let shallowCopy: dict<'a> => dict<'a> = %raw(`(dict) => ({...dict})`)
 }
 
 module Math = {
-  let minOptInt = (a, b) =>
-    switch (a, b) {
-    | (Some(a), Some(b)) => Pervasives.min(a, b)->Some
-    | (Some(a), None) => Some(a)
-    | (None, Some(b)) => Some(b)
-    | (None, None) => None
-    }
 }
 
 module Array = {
   @val external jsArrayCreate: int => array<'a> = "Array"
-
-  /* Given a comaprator and two sorted lists, combine them into a single sorted list */
-  let mergeSorted = (f: ('a, 'a) => bool, xs: array<'a>, ys: array<'a>) => {
-    if Array.length(xs) == 0 {
-      ys
-    } else if Array.length(ys) == 0 {
-      xs
-    } else {
-      let n = Array.length(xs) + Array.length(ys)
-      let result = jsArrayCreate(n)
-
-      let rec loop = (i, j, k) => {
-        if i < Array.length(xs) && j < Array.length(ys) {
-          if f(xs->Array.getUnsafe(i), ys->Array.getUnsafe(j)) {
-            result[k] = xs->Array.getUnsafe(i)
-            loop(i + 1, j, k + 1)
-          } else {
-            result[k] = ys->Array.getUnsafe(j)
-            loop(i, j + 1, k + 1)
-          }
-        } else if i < Array.length(xs) {
-          result[k] = xs->Array.getUnsafe(i)
-          loop(i + 1, j, k + 1)
-        } else if j < Array.length(ys) {
-          result[k] = ys->Array.getUnsafe(j)
-          loop(i, j + 1, k + 1)
-        }
-      }
-
-      loop(0, 0, 0)
-      result
-    }
-  }
-
-  /**
-  Creates a shallow copy of the array and sets the value at the given index
-  */
-  let setIndexImmutable = (arr: array<'a>, index: int, value: 'a): array<'a> => {
-    let shallowCopy = arr->Belt.Array.copy
-    shallowCopy->Array.setUnsafe(index, value)
-    shallowCopy
-  }
-
-  let transposeResults = (results: array<result<'a, 'b>>): result<array<'a>, 'b> => {
-    let rec loop = (index: int, output: array<'a>): result<array<'a>, 'b> => {
-      if index >= Array.length(results) {
-        Ok(output)
-      } else {
-        switch results->Array.getUnsafe(index) {
-        | Ok(value) => {
-            output[index] = value
-            loop(index + 1, output)
-          }
-        | Error(_) as err => err->(magic: result<'a, 'b> => result<array<'a>, 'b>)
-        }
-      }
-    }
-
-    loop(0, Belt.Array.makeUninitializedUnsafe(results->Array.length))
-  }
-
-  /**
-Helper to check if a value exists in an array
-*/
-  let includes = (arr: array<'a>, val: 'a) =>
-    arr->Array.find(item => item == val)->Belt.Option.isSome
 
   let isEmpty = (arr: array<_>) =>
     switch arr {
     | [] => true
     | _ => false
     }
-
-  let awaitEach = async (arr: array<'a>, fn: 'a => promise<unit>) => {
-    for i in 0 to arr->Array.length - 1 {
-      let item = arr->Array.getUnsafe(i)
-      await item->fn
-    }
-  }
-
-  /**
-  Creates a new array removing the item at the given index
-
-  Index > array length or < 0 results in a copy of the array
-  */
-  let removeAtIndex = (array, index) => {
-    if index < 0 {
-      array->Array.copy
-    } else {
-    array
-    ->Array.slice(~start=0, ~end=index)
-    ->Array.concat(array->Array.slice(~start=index + 1))
-  }
-  }
-
-  let last = (arr: array<'a>): option<'a> => arr->Belt.Array.get(arr->Array.length - 1)
-
-  let findReverseWithIndex = (arr: array<'a>, fn: 'a => bool): option<('a, int)> => {
-    let rec loop = (index: int) => {
-      if index < 0 {
-        None
-      } else {
-        let item = arr->Array.getUnsafe(index)
-        if fn(item) {
-          Some((item, index))
-        } else {
-          loop(index - 1)
-        }
-      }
-    }
-    loop(arr->Array.length - 1)
-  }
 
   /** 
   Currently a bug in rescript if you ignore the return value of spliceInPlace 
@@ -244,42 +47,13 @@ Helper to check if a value exists in an array
   @send
   external spliceInPlace: (array<'a>, ~pos: int, ~remove: int) => array<'a> = "splice"
 
-  /**
-  Interleaves an array with a separator
-
-  interleave([1, 2, 3], 0) -> [1, 0, 2, 0, 3]
-  */
-  let interleave = (arr: array<'a>, separator: 'a) => {
-    let interleaved = []
-    arr->Array.forEachWithIndex((v, i) => {
-      interleaved->Array.push(v)->ignore
-      if i < arr->Array.length - 1 {
-        interleaved->Array.push(separator)->ignore
-      }
-    })
-    interleaved
-  }
-
   @send
   external flatten: (array<array<'a>>, @as(1) _) => array<'a> = "flat"
 }
 
-module String = {
-  let capitalize = str => {
-    str->String.slice(~start=0, ~end=1)->String.toUpperCase ++
-      str->String.slice(~start=1)
-  }
-}
+module String = {}
 
-module Result = {
-  let forEach = (result, fn) => {
-    switch result {
-    | Ok(v) => fn(v)
-    | Error(_) => ()
-    }
-    result
-  }
-}
+module Result = {}
 
 /**
 Useful when an unsafe unwrap is needed on Result type
@@ -296,31 +70,6 @@ let unwrapResultExn = res =>
 external queueMicrotask: (unit => unit) => unit = "queueMicrotask"
 
 module Schema = {
-  let getNonOptionalFieldNames = schema => {
-    let acc = []
-    switch schema->S.classify {
-    | Object({items}) =>
-      items->Belt.Array.forEach(item => {
-        switch item.schema->S.classify {
-        // Check for null, since we generate S.null schema for db serializing
-        // In the future it should be changed to Option only
-        | Null(_) => ()
-        | Option(_) => ()
-        | _ => acc->Belt.Array.push(item.location)
-        }
-      })
-    | _ => ()
-    }
-    acc
-  }
-
-  let getCapitalizedFieldNames = schema => {
-    switch schema->S.classify {
-    | Object({items}) => items->Belt.Array.map(item => item.location->String.capitalize)
-    | _ => []
-    }
-  }
-
   let dbBigint =
     S.string
     ->S.setName("BigInt")
@@ -332,36 +81,6 @@ module Schema = {
       serializer: bigint => bigint->BigInt.toString,
     })
 
-  // Don't use S.unknown, since it's not serializable to json
-  // In a nutshell, this is completely unsafe.
-  let dbDate =
-    S.json(~validate=false)
-    ->(magic: S.t<JSON.t> => S.t<Date.t>)
-    ->S.preprocess(_ => {serializer: date => date->magic->Date.toISOString})
-
-  // When trying to serialize data to Json pg type, it will fail with
-  // PostgresError: column "params" is of type json but expression is of type boolean
-  // If there's bool or null on the root level. It works fine as object field values.
-  let coerceToJsonPgType = schema => {
-    schema->S.preprocess(s => {
-      switch s.schema->S.classify {
-      // This is a workaround for Fuel Bytes type
-      | Unknown => {serializer: _ => %raw(`"null"`)}
-      | Bool => {
-          serializer: unknown => {
-            if unknown === %raw(`false`) {
-              %raw(`"false"`)
-            } else if unknown === %raw(`true`) {
-              %raw(`"true"`)
-            } else {
-              unknown
-            }
-          },
-        }
-      | _ => {}
-      }
-    })
-  }
 }
 
 module Set = {
@@ -388,8 +107,6 @@ module Set = {
   @ocaml.doc("Appends `value` to the `Set` object. Returns the `Set` object with added value.")
   @send
   external add: (t<'value>, 'value) => t<'value> = "add"
-
-  let addMany = (set, values) => values->Belt.Array.forEach(value => set->add(value)->ignore)
 
   @ocaml.doc("Removes all elements from the `Set` object.") @send
   external clear: t<'value> => unit = "clear"
@@ -465,20 +182,8 @@ module Map = {
 }
 
 module BigInt = {
-  let fromString = str => {
-    try {
-      Some(%raw("BigInt(str)"))
-    } catch {
-    | _ => None
-    }
-  }
-
   module Bitwise = {
     @@warning("-27")
-    let shift_left = (a: bigint, b: bigint): bigint => %raw("a << b")
-    let shift_right = (a: bigint, b: bigint): bigint => %raw("a >> b")
-    let logor = (a: bigint, b: bigint): bigint => %raw("a | b")
-    let logand = (a: bigint, b: bigint): bigint => %raw("a & b")
     @@warning("+27")
   }
 }

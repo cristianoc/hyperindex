@@ -1,15 +1,9 @@
 type abi = EvmTypes.Abi.t
 
-let makeAbi = (abi: JSON.t): abi => abi->Utils.magic
-
 @deprecated("Use Address.t instead. The type will be removed in v3")
 type ethAddress = Address.t
 @deprecated("Use Address.Evm.fromStringOrThrow instead. The function will be removed in v3")
 let getAddressFromStringUnsafe = Address.Evm.fromStringOrThrow
-@deprecated("Use Address.toString instead. The function will be removed in v3")
-let ethAddressToString = Address.toString
-@deprecated("Use Address.schema instead. The function will be removed in v3")
-let ethAddressSchema = Address.schema
 
 type txHash = string
 
@@ -52,45 +46,16 @@ module Filter = {
 }
 
 module CombinedFilter = {
-  type combinedFilterRecord = {
-    address?: array<Address.t>,
-    //The second element of the tuple is the
-    topics: Rpc.GetLogs.topicQuery,
-    fromBlock: int,
-    toBlock: int,
-  }
-
-  let toFilter = (combinedFilter: combinedFilterRecord): Filter.t => combinedFilter->Utils.magic
+  type combinedFilterRecord
 }
 
-type log = {
-  blockNumber: int,
-  blockHash: string,
-  removed: option<bool>,
-  //Note: this is the index of the log in the transaction and should be used whenever we use "logIndex"
-  address: Address.t,
-  data: string,
-  topics: array<EvmTypes.Hex.t>,
-  transactionHash: txHash,
-  transactionIndex: int,
-  //Note: this logIndex is the index of the log in the block, not the transaction
-  @as("index") logIndex: int,
-}
+type log
 
 type transaction
 
-type minimumParseableLogData = {topics: array<EvmTypes.Hex.t>, data: string}
+type minimumParseableLogData
 
-//Can safely convert from log to minimumParseableLogData since it contains
-//both data points required
-let logToMinimumParseableLogData: log => minimumParseableLogData = Utils.magic
-
-type logDescription<'a> = {
-  args: 'a,
-  name: string,
-  signature: string,
-  topic: string,
-}
+type logDescription<'a>
 
 module Network = {
   type t
@@ -105,41 +70,11 @@ module Network = {
 module JsonRpcProvider = {
   type t
 
-  type rpcOptions = {
-    staticNetwork?: Network.t,
-    // Options for FallbackProvider
-    /**
-     *  The amount of time to wait before kicking off the next provider.
-     *
-     *  Any providers that have not responded can still respond and be
-     *  counted, but this ensures new providers start.
-     *  Default: 400ms
-     */
-    stallTimeout?: int,
-    /**
-     *  The priority. Lower priority providers are dispatched first.
-     *  Default: 1
-     */
-    priority?: int,
-    /**
-     *  The amount of weight a provider is given against the quorum.
-     *  Default: 1
-     */
-    weight?: int,
-  }
+  type rpcOptions
 
   @module("ethers") @scope("ethers") @new
   external makeWithOptions: (~rpcUrl: string, ~network: Network.t, ~options: rpcOptions) => t =
     "JsonRpcProvider"
-
-  let makeStatic = (~rpcUrl: string, ~network: Network.t, ~priority=?, ~stallTimeout=?): t => {
-    makeWithOptions(~rpcUrl, ~network, ~options={staticNetwork: network, ?priority, ?stallTimeout})
-  }
-
-  let make = (~rpcUrl: string, ~chainId: int): t => {
-    let network = Network.fromChainId(~chainId)
-    makeStatic(~rpcUrl, ~network)
-  }
 
   @send
   external getLogs: (t, ~filter: Filter.t) => promise<array<log>> = "getLogs"
@@ -147,33 +82,7 @@ module JsonRpcProvider = {
   @send
   external getTransaction: (t, ~transactionHash: string) => promise<transaction> = "getTransaction"
 
-  let makeGetTransactionFields = (~getTransactionByHash) =>
-    async (log: log): promise<unknown> => {
-      let transaction = await getTransactionByHash(log.transactionHash)
-      // Mutating should be fine, since the transaction isn't used anywhere else outside the function
-      let fields: {..} = transaction->Obj.magic
-
-      // Make it compatible with HyperSync transaction fields
-      fields["transactionIndex"] = log.transactionIndex
-      fields["input"] = fields["data"]
-
-      fields->Obj.magic
-    }
-
-  type block = {
-    _difficulty: bigint,
-    difficulty: int,
-    extraData: Address.t,
-    gasLimit: bigint,
-    gasUsed: bigint,
-    hash: string,
-    miner: Address.t,
-    nonce: int,
-    number: int,
-    parentHash: Address.t,
-    timestamp: int,
-    transactions: array<Address.t>,
-  }
+  type block
 
   @send
   external getBlock: (t, int) => promise<Nullable.t<block>> = "getBlock"
